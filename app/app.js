@@ -114,10 +114,11 @@ ENTITIES.snapshots = { table: 'reward_snapshots', order: ['taken_at', false] }
 const TABS = [
   { id: 'home', label: 'Início', icon: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>' },
   { id: 'lives', label: 'Lives', icon: '<circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"/>' },
+  { id: 'stats', label: 'Estatísticas', icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>' },
   { id: 'rewards', label: 'Recompensas', icon: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/>' },
 ]
 
-const state = { tab: 'home', rtab: 'saldo', lmonth: null, lsort: 'data', wmonth: null, data: {}, rate: readCachedRate() }
+const state = { tab: 'home', rtab: 'saldo', lmonth: null, lsort: 'data', wmonth: null, smonth: null, data: {}, rate: readCachedRate() }
 
 function readCachedRate() {
   try { return JSON.parse(localStorage.getItem('usd-brl')) } catch { return null }
@@ -224,12 +225,12 @@ function renderShell() {
 function go(tab) {
   state.tab = tab
   app.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab))
-  document.getElementById('title').textContent = tab === 'home' ? 'Início' : tab === 'rewards' ? 'Recompensas' : ENTITIES[tab].title
-  document.getElementById('add').hidden = tab === 'rewards'
+  document.getElementById('title').textContent = { home: 'Início', rewards: 'Recompensas', stats: 'Estatísticas' }[tab] ?? ENTITIES[tab].title
+  document.getElementById('add').hidden = tab === 'rewards' || tab === 'stats'
   document.getElementById('prints').hidden = !['lives', 'rewards'].includes(tab)
-  if (tab !== 'rewards') document.getElementById('add').setAttribute('aria-label', tab === 'home' ? 'Adicionar live' : `Adicionar ${ENTITIES[tab].single}`)
+  if (tab !== 'rewards' && tab !== 'stats') document.getElementById('add').setAttribute('aria-label', tab === 'home' ? 'Adicionar live' : `Adicionar ${ENTITIES[tab].single}`)
   window.scrollTo(0, 0)
-  return tab === 'home' ? renderHome() : tab === 'rewards' ? renderRewards() : tab === 'lives' ? renderLives() : renderList(tab)
+  return tab === 'home' ? renderHome() : tab === 'rewards' ? renderRewards() : tab === 'lives' ? renderLives() : tab === 'stats' ? renderStats() : renderList(tab)
 }
 
 // ---------- Início ----------
@@ -278,8 +279,6 @@ async function renderHome() {
       <div class="txt"><span>${payout?.source === 'saque' ? 'Dólar do último saque' : 'Dólar estimado para saque'}</span><strong>${rate ? esc(brlRate(rate)) : '—'}</strong></div>
       <div class="calc">${payout?.source === 'saque' ? `comercial hoje<br><b>${commercial ? esc(brl(commercial)) : '—'}</b>` : commercial ? `comercial <b>${esc(brl(commercial))}</b><br>− R$ 0,18` : 'sem conexão'}${state.rate?.source === 'Banco Central' ? '<br>(Banco Central)' : ''}</div>
     </div>
-    ${streakCard(lives)}
-    ${projectionCard(ml, rate, monthName)}
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
       <div class="grid">
@@ -328,6 +327,22 @@ function streakCard(lives) {
       <b>${streak === 1 ? 'dia seguido com live' : 'dias seguidos com live'}</b>
       <span class="muted small">Sua maior sequência: ${best} ${best === 1 ? 'dia' : 'dias'}${liveToday ? '' : ' · hoje ainda não teve live'}</span>
       <div class="dots">${dots}</div>
+    </section>`
+}
+
+// Mês passado: como fechou
+function closedCard(ml, rate, monthName) {
+  const gems = ml.reduce((s, l) => s + (Number(l.diamonds) || 0), 0)
+  if (!gems) return ''
+  const total = gems * 0.01 * 0.51
+  return `
+    <section class="proj">
+      <span class="lead">${esc(monthName[0].toUpperCase() + monthName.slice(1))} fechou com</span>
+      <b class="big">${esc(int(gems))} diamantes</b>
+      <div class="row"><span>Lives</span><b>${ml.length}</b></div>
+      <div class="row"><span>Em dólares (51%)</span><b>${esc(usd(total))}</b></div>
+      ${rate ? `<div class="row"><span>Em reais (cotação de hoje)</span><b>${esc(brl(total * rate))}</b></div>` : ''}
+      <div class="row"><span>Limite de saque no mês seguinte</span><b class="gold">${esc(usd0(limitFor(total).tier[1]))} por dia</b></div>
     </section>`
 }
 
@@ -380,7 +395,7 @@ const revealer = new IntersectionObserver(entries => {
 }, { rootMargin: '0px 0px -6% 0px' })
 
 function reveal(root) {
-  root.querySelectorAll('.hero, .rate, .lifetime, h2, .stat, .list li, .empty').forEach(el => {
+  root.querySelectorAll('.hero, .rate, .lifetime, .streak, .proj, .card, .records, h2, .stat, .list li, .empty').forEach(el => {
     const i = [...el.parentElement.children].indexOf(el)
     el.classList.add('reveal')
     el.style.transitionDelay = `${Math.min(i, 5) * 50}ms`
@@ -710,9 +725,6 @@ async function renderLives() {
           ${card('Horas ao vivo', hours(s.min), s.min, prev?.min)}
         </div>
       </section>
-      ${funnelCard(s, prev)}
-      ${retentionCard(lives, months.slice(Math.max(0, i - 5), i + 1))}
-      ${recordsCard(lives)}
       <section class="best">
         <div class="hero-head"><span>Melhor live do mês</span><i class="pill">${esc(shortDay(best.date))}</i></div>
         <b class="best-title">${esc(best.title || fmtDate(best.date))}</b>
@@ -753,6 +765,45 @@ async function renderLives() {
     renderLives()
   }))
   view.querySelectorAll('[data-lsort]').forEach(b => b.addEventListener('click', () => { state.lsort = b.dataset.lsort; renderLives() }))
+  bindList(view)
+  reveal(view)
+}
+
+// ---------- Estatísticas ----------
+
+async function renderStats() {
+  const view = document.getElementById('view')
+  if (!state.data.lives) view.innerHTML = '<p class="muted center">Carregando…</p>'
+  const [lives, withdrawals] = await Promise.all(['lives', 'withdrawals'].map(load))
+  await freshRate()
+  if (state.tab !== 'stats') return
+  const current = today().slice(0, 7)
+  const months = [...new Set([current, ...lives.map(l => l.date?.slice(0, 7)).filter(Boolean)])].sort()
+  if (!months.includes(state.smonth)) state.smonth = current
+  const i = months.indexOf(state.smonth)
+  const s = monthStats(lives, state.smonth)
+  const prev = i > 0 ? monthStats(lives, months[i - 1]) : null
+  const rate = payoutRate(withdrawals, state.rate?.commercial)?.rate ?? null
+  const name = new Date(`${state.smonth}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const monthOnly = new Date(`${state.smonth}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long' })
+  const parts = [
+    streakCard(lives),
+    state.smonth === current ? projectionCard(s.ls, rate, monthOnly) : closedCard(s.ls, rate, monthOnly),
+    funnelCard(s, prev),
+    retentionCard(lives, months.slice(Math.max(0, i - 5), i + 1)),
+    recordsCard(lives),
+  ].filter(Boolean)
+  view.innerHTML = `
+    <div class="month-pick">
+      <button type="button" data-smonth="-1" aria-label="Mês anterior" ${i === 0 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div><strong>${esc(name[0].toUpperCase() + name.slice(1))}</strong><span>${s.ls.length} ${s.ls.length === 1 ? 'live' : 'lives'} no mês</span></div>
+      <button type="button" data-smonth="1" aria-label="Próximo mês" ${i === months.length - 1 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    ${parts.length ? parts.join('') : empty('Registre lives pelos prints para ver as estatísticas.', 'lives')}`
+  view.querySelectorAll('[data-smonth]').forEach(b => b.addEventListener('click', () => {
+    state.smonth = months[i + Number(b.dataset.smonth)]
+    renderStats()
+  }))
   bindList(view)
   reveal(view)
 }
