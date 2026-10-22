@@ -458,3 +458,4 @@ tr.next td { color: var(--pos); }
 .report th { text-align: right; }
 .report th:first-child, .report td:first-child { text-align: left; }
 .report td { text-align: right; }
+.field input.upper { text-transform: uppercase; }

@@ -33,7 +33,7 @@ const ENTITIES = {
   lives: {
     table: 'lives', title: 'Lives', single: 'live', order: ['date', false], importer: true,
     fields: [
-      { key: 'title', label: 'Título da live', type: 'text' },
+      { key: 'title', label: 'Título da live', type: 'text', upper: true },
       { key: 'date', label: 'Data', type: 'date', required: true, default: today, half: true },
       { key: 'duration_min', label: 'Duração (min)', type: 'int', half: true },
       { key: 'rewards_usd', label: 'Recompensas (US$)', type: 'money', half: true },
@@ -170,6 +170,8 @@ async function load(name) {
   const e = ENTITIES[name]
   const { data, error } = await sb.from(e.table).select('*').order(e.order[0], { ascending: e.order[1] })
   if (error) { toast('Erro ao carregar: ' + error.message); return state.data[name] || [] }
+  // títulos de lives sempre em maiúsculas, inclusive os salvos antes dessa regra
+  if (name === 'lives') for (const l of data) if (l.title) l.title = l.title.toLocaleUpperCase('pt-BR')
   return (state.data[name] = data)
 }
 
@@ -456,13 +458,14 @@ function input(f, v) {
   else if (f.type === 'money') el = `<input id="${id}" name="${f.key}" type="text" inputmode="decimal" placeholder="0,00" value="${v != null && v !== '' ? esc(String(v).replace('.', ',')) : ''}" ${req}>`
   else if (f.type === 'date') el = `<input id="${id}" name="${f.key}" type="date" value="${esc(v)}" ${req}>`
   else if (f.type === 'datetime') el = `<input id="${id}" name="${f.key}" type="datetime-local" value="${v ? esc(toLocalInput(v)) : ''}" ${req}>`
-  else el = `<input id="${id}" name="${f.key}" type="text" value="${esc(v)}" ${req}>`
+  else el = `<input id="${id}" name="${f.key}" type="text" value="${esc(v)}" ${f.upper ? 'autocapitalize="characters" class="upper"' : ''} ${req}>`
   return `<label class="field ${f.half ? 'half' : ''}" for="${id}"><span>${esc(f.label)}</span>${el}</label>`
 }
 
 function parse(f, raw) {
   const s = String(raw ?? '').trim()
   if (s === '') return null
+  if (f.upper) return s.toLocaleUpperCase('pt-BR')
   if (f.type === 'int') return parseInt(s, 10)
   if (f.type === 'money') {
     // "1.500,50" e "1500.50" viram 1500.5

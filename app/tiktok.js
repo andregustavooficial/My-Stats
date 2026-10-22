@@ -104,7 +104,7 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
       const prev = [lines[i - 1], lines[i - 2]].find(isTitle)
       const title = [line.slice(0, head.index), prev || '']
         .map(cleanTitle).sort((a, b) => b.length - a.length)[0]
-      if (title.length >= 3) out.title = title
+      if (title.length >= 3) out.title = title.toLocaleUpperCase('pt-BR')
       // O resumo logo abaixo do cabeçalho começa com um número e mistura números e nomes;
       // os mesmos dados vêm de novo em "Key metrics", então ele é ignorado
       inSummary = /^\S*\d/.test(lines[i + 1] ?? '')
