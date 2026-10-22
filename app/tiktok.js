@@ -20,7 +20,8 @@ const LABELS = [
 
 const MONTHS = { jan: 1, feb: 2, fev: 2, mar: 3, apr: 4, abr: 4, may: 5, mai: 5, jun: 6, jul: 7, aug: 8, ago: 8, sep: 9, set: 9, oct: 10, out: 10, nov: 11, dec: 12, dez: 12 }
 
-const VALUE = /^(US\$|USD)?\s?\d[\d.,]*\s?[KkMm]?$|^\d+\s?m\s?\d+\s?s$/
+// A leitura do iPhone às vezes troca o zero pela letra O ("Om34s")
+const VALUE = /^(US\$|USD)?\s?\d[\d.,]*\s?[KkMm]?$|^[\dOo]+\s?m\s?[\dOo]+\s?s$/
 
 const clean = s => s.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim()
 const labelOf = s => LABELS.find(([, re]) => re.test(clean(s)))?.[0]
@@ -38,7 +39,7 @@ function number(raw) {
 
 function convert(key, raw) {
   if (key === 'avg_watch_sec') {
-    const m = raw.match(/(\d+)\s?m\s?(\d+)\s?s/)
+    const m = raw.replace(/[Oo]/g, '0').match(/(\d+)\s?m\s?(\d+)\s?s/)
     return m ? +m[1] * 60 + +m[2] : null
   }
   const n = number(raw)
@@ -71,8 +72,11 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
       const h = line.match(/(\d+)\s*(hours?|horas?|h)\b/i)
       const m = line.match(/(\d+)\s*(min|minutes?|minutos?)\b/i)
       if (h || m) out.duration_min = (h ? +h[1] * 60 : 0) + (m ? +m[1] : 0)
+      // O título vem na linha anterior ou na mesma linha, antes da data
+      const before = line.slice(0, head.index).trim()
       const prev = lines[i - 1]
-      if (prev && !labelOf(prev) && !VALUE.test(prev) && !/live analysis|an[aá]lise/i.test(prev)) out.title = prev.replace(/[^\p{L}\p{N}\p{P} ]/gu, '').trim()
+      const title = before || (prev && !labelOf(prev) && !VALUE.test(prev) && !/live analysis|an[aá]lise/i.test(prev) ? prev : '')
+      if (title) out.title = title.replace(/[^\p{L}\p{N}\p{P} ]/gu, '').trim()
       // O resumo logo abaixo do cabeçalho começa com um número e mistura números e nomes;
       // os mesmos dados vêm de novo em "Key metrics", então ele é ignorado
       inSummary = VALUE.test(lines[i + 1] ?? '')
@@ -80,14 +84,15 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
       return
     }
     if (inSummary) {
-      if (/^(view all|ver tudo|ver todos|performance|desempenho|key metrics|m[eé]tricas)/i.test(clean(line))) inSummary = false
+      // "View all" pode aparecer no meio do resumo; ele só termina nas seções seguintes
+      if (/^(performance|desempenho|key metrics|m[eé]tricas|viewership|engagement|rewards|audi[eê]ncia|engajamento|recompensas)$/i.test(clean(line))) inSummary = false
       return
     }
 
     const label = labelOf(line)
     if (label) { pending.push(label); prevWasLabel = pending.length === 1; return }
 
-    const inline = line.match(/^(.+?)[\s:]+((?:US\$|USD)?\s?\d[\d.,]*\s?[KkMm]?|\d+\s?m\s?\d+\s?s)$/)
+    const inline = line.match(/^(.+?)[\s:]+((?:US\$|USD)?\s?\d[\d.,]*\s?[KkMm]?|[\dOo]+\s?m\s?[\dOo]+\s?s)$/)
     if (inline && labelOf(inline[1])) { set(labelOf(inline[1]), inline[2], 2); prevWasLabel = false; return }
 
     if (VALUE.test(line) && pending.length) {
