@@ -543,7 +543,18 @@ function bindImporter(form, e) {
       el.closest('.field').classList.add('auto')
       filled.add(f.key); n++
     }
-    status.textContent = n ? `${filled.size} campos preenchidos. Confira antes de salvar.` : 'Não encontrei dados da live nesse texto.'
+    // Sem a recompensa no print, calcula: diamantes × US$ 0,01 × porcentagem da live (duração e seguidores)
+    let calculated = false
+    const rewardsEl = form.elements.rewards_usd
+    if (data.rewards_usd == null && !rewardsEl.value && num(form.elements.diamonds.value)) {
+      const pctLive = livePct(num(form.elements.duration_min.value), num(form.elements.new_followers.value))
+      rewardsEl.value = (num(form.elements.diamonds.value) * pctLive / 10000).toFixed(2).replace('.', ',')
+      rewardsEl.closest('.field').classList.add('auto', 'calc')
+      calculated = true
+    }
+    status.textContent = n
+      ? `${filled.size} campos preenchidos.${calculated ? ' Recompensa calculada pelos diamantes: confira no print.' : ''} Confira antes de salvar.`
+      : 'Não encontrei dados da live nesse texto.'
   }
   form.querySelector('[data-paste]').addEventListener('click', async () => {
     try {

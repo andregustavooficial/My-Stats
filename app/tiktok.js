@@ -68,6 +68,16 @@ function joinedHead(line) {
   return null
 }
 
+// "Estimated rewards USD428.40" com caracteres trocados pela leitura ("USDA28.4O", "U5D 428,40"):
+// tira o prefixo da moeda e troca as letras parecidas com números
+const LOOKALIKE = { O: '0', o: '0', D: '0', Q: '0', A: '4', S: '5', s: '5', l: '1', I: '1', i: '1', '|': '1', B: '8', Z: '2', z: '2', G: '6', g: '9', T: '7' }
+function rewardsValue(raw) {
+  const cur = raw.match(/(?:U\s?[S5]\s?[D0O]|US\$|\$)\s?(.*)$/i)
+  const v = (cur ? cur[1] : raw).trim().replace(/\s+/g, '')
+  const fixed = [...v].map(c => LOOKALIKE[c] ?? c).join('').replace(/[^\d.,]/g, '')
+  return /\d/.test(fixed) && /^\d[\d.,]*$/.test(fixed) ? fixed : null
+}
+
 export function parseTikTok(text, year = new Date().getFullYear()) {
   const out = {}
   const strength = {}
@@ -85,6 +95,12 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
   let inSummary = false
 
   lines.forEach((line, i) => {
+    // Recompensa: lida à parte, com tolerância a caracteres trocados
+    const rw = line.match(/(estimated\s*rewards?|recompensas?\s*estimadas?)\s*:?\s*(.*)$/i)
+    if (rw && !inSummary) {
+      const value = rewardsValue(rw[2] || '') ?? rewardsValue(lines[i + 1] ?? '')
+      if (value) { set('rewards_usd', value, 3); return }
+    }
     // Cabeçalho: "Oct 20 11:42 AM · 3 hours 12 min"
     const head = line.match(/\b([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})\b.*?\b(\d{1,2}):(\d{2})/) || joinedHead(line)
     if (head && MONTHS[head[1].toLowerCase()]) {
