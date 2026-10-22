@@ -64,7 +64,9 @@ export function ledger({ snapshots = [], lives = [], withdrawals = [] }, now = n
   let available = Number(snap.available_usd) || 0
   if (credited) available += snapWeekUsd
   available += sum(lives.filter(newLive), 'rewards_usd')
-  available -= sum(withdrawals.filter(after), 'amount_usd')
+  // saque conta só se foi feito depois do print (pela data do saque, não pela hora em que foi registrado):
+  // saques antigos registrados agora entram no relatório, mas não mexem no saldo
+  available -= sum(withdrawals.filter(w => after(w) && w.date >= ymd(taken)), 'amount_usd')
 
   let upcoming
   if (snapWeek === current) {

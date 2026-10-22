@@ -893,12 +893,13 @@ function saldoPanel({ L, payout, rate }) {
     <form class="card" id="w-form">
       <h2>Registrar saque</h2>
       <div class="grid">
-        <label class="field" for="w-amount"><span>Valor sacado (US$)</span><input id="w-amount" name="amount" type="text" inputmode="decimal" placeholder="0,00" required></label>
+        <label class="field" for="w-amount"><span>Sacado no TikTok (US$)</span><input id="w-amount" name="amount" type="text" inputmode="decimal" placeholder="0,00" required></label>
         <label class="field" for="w-rate"><span>Dólar no Payoneer (R$)</span><input id="w-rate" name="rate" type="text" inputmode="decimal" value="${esc(String(lastRate).replace('.', ','))}" required></label>
       </div>
       <label class="field" for="w-date"><span>Data</span><input id="w-date" name="date" type="date" value="${today()}"></label>
       <div class="result">
         <div class="row"><span>Taxa do TikTok</span><b>− US$ 3,00</b></div>
+        <p class="muted small">Coloque o valor que saiu do TikTok (antes da taxa), não o que chegou no Payoneer.</p>
         <div class="row"><span>Cai na sua conta</span><b class="total" id="w-total">R$ 0,00</b></div>
         <p class="muted small" id="w-warn"></p>
       </div>
@@ -993,9 +994,10 @@ function bindSaldo(view, { L }) {
     view.querySelector('#w-warn').textContent =
       amount && amount < 9 ? 'O saque mínimo é US$ 9.'
       : amount > limit ? `Seu limite é ${usd0(limit)} por dia.`
-      : L.snap && amount > L.available + 0.005 ? `Mais do que o disponível (${usd(L.available)}).` : ''
+      : L.snap && form.date.value >= L.snap.taken_at.slice(0, 10) && amount > L.available + 0.005 ? `Mais do que o disponível (${usd(L.available)}).` : ''
   }
   form.addEventListener('input', calc)
+  form.date.addEventListener('change', calc)
   calc()
   form.addEventListener('submit', async ev => {
     ev.preventDefault()
