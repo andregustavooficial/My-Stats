@@ -24,6 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # Cada publicação ganha uma versão nos endereços dos arquivos, para o iPhone não reaproveitar os antigos
+      - name: Stamp version
+        run: sed -i "s/__V__/${GITHUB_SHA::7}/g" app/index.html app/*.js
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app

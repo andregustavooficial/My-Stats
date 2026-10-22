@@ -1,7 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
-import { parseTikTok, parseWeekly, isWeeklyPrint } from './tiktok.js'
-import { readEach } from './ocr.js'
-import { WITHDRAW_FEE_USD, livePct, daysPct, weekStartOf, weekEndOf, weekDays, payoutRate, ledger, monthEarned, limitFor, LIMIT_TIERS, lifetime } from './rewards.js'
+import { parseTikTok, parseWeekly, isWeeklyPrint } from './tiktok.js?v=__V__'
+import { readEach } from './ocr.js?v=__V__'
+import { WITHDRAW_FEE_USD, livePct, daysPct, weekStartOf, weekEndOf, weekDays, payoutRate, ledger, monthEarned, limitFor, LIMIT_TIERS, lifetime } from './rewards.js?v=__V__'
 
 // A chave anon é pública por design; os dados são protegidos pelo RLS (supabase/schema.sql).
 const SUPABASE_URL = 'https://tolmprwwnishdohhhuad.supabase.co'
