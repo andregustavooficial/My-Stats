@@ -72,7 +72,7 @@ function joinedHead(line) {
 // tira o prefixo da moeda e troca as letras parecidas com números
 const LOOKALIKE = { O: '0', o: '0', D: '0', Q: '0', A: '4', S: '5', s: '5', l: '1', I: '1', i: '1', '|': '1', B: '8', Z: '2', z: '2', G: '6', g: '9', T: '7' }
 function rewardsValue(raw) {
-  const cur = raw.match(/(?:U\s?[S5]\s?[D0O]|US\$|\$)\s?(.*)$/i)
+  const cur = raw.match(/(?:[U5S]?\s?[S5]\s?[D0O]|US\$|\$)\s?(?=[\dOoAS])(.*)$/i)
   const v = (cur ? cur[1] : raw).trim().replace(/\s+/g, '')
   const fixed = [...v].map(c => LOOKALIKE[c] ?? c).join('').replace(/[^\d.,]/g, '')
   return /\d/.test(fixed) && /^\d[\d.,]*$/.test(fixed) ? fixed : null
@@ -153,10 +153,21 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
   // A recompensa é diamantes × US$ 0,01 × 20% a 40%. Se o ponto se perdeu ("USD20309"), volta duas casas.
   if (out.rewards_usd && out.diamonds) {
     const ratio = r => r / (out.diamonds * 0.01)
+    const fits = r => ratio(r) >= 0.15 && ratio(r) <= 0.45
+    let ok = false
     for (const fix of [1, 100, 10]) {
       const r = Math.round(out.rewards_usd / fix * 100) / 100
-      if (ratio(r) >= 0.15 && ratio(r) <= 0.45) { out.rewards_usd = r; break }
+      if (fits(r)) { out.rewards_usd = r; ok = true; break }
     }
+    // Restos da moeda lidos como dígitos na frente ("USD428.71" → "550428.71"): tira dígitos do começo até bater
+    if (!ok) {
+      const txt = out.rewards_usd.toFixed(2)
+      for (let k = 1; k < txt.indexOf('.'); k++) {
+        const r = Number(txt.slice(k))
+        if (fits(r)) { out.rewards_usd = r; ok = true; break }
+      }
+    }
+    if (!ok) delete out.rewards_usd   // valor sem sentido: melhor calcular e avisar
   }
   return out
 }
