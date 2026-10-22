@@ -57,12 +57,14 @@ function convert(key, raw) {
 // A leitura às vezes junta o dia com a hora: "Oct 17:03 PM" é Oct 1, 7:03 PM (não existe 17h com PM).
 // Separa os dígitos de forma que a hora fique entre 1 e 12 e o dia entre 1 e 31.
 function joinedHead(line) {
-  const m = line.match(/\b([A-Za-z]{3})[a-z]*\.?\s+(\d{2,4}):(\d{2})\s*([AP]M)?/i)
-  if (!m) return null
-  const digits = m[2]
-  for (const cut of [digits.length - 1, digits.length - 2]) {
+  // mês (às vezes lido "0ct") seguido de dígitos com espaço, ":" ou "." no meio, até AM/PM ou o fim da hora
+  const m = line.replace(/\b0(ct)\b/i, 'O$1').match(/\b([A-Za-z]{3})[a-z]*\.?\s*((?:\d[\s:.]?){3,6})\s*([AP]\.?M)?/i)
+  if (!m || !MONTHS[m[1].toLowerCase()]) return null
+  const digits = m[2].replace(/\D/g, '')
+  const rest = digits.slice(0, -2)   // os dois últimos são os minutos
+  for (const cut of [rest.length - 1, rest.length - 2]) {
     if (cut < 1) continue
-    const day = Number(digits.slice(0, cut)), hour = Number(digits.slice(cut))
+    const day = Number(rest.slice(0, cut)), hour = Number(rest.slice(cut))
     if (day >= 1 && day <= 31 && hour >= 1 && hour <= 12) return Object.assign([m[0], m[1], day, hour, m[3]], { index: m.index })
   }
   return null
@@ -102,7 +104,8 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
       if (value) { set('rewards_usd', value, 3); return }
     }
     // Cabeçalho: "Oct 20 11:42 AM · 3 hours 12 min"
-    const head = line.match(/\b([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})\b.*?\b(\d{1,2}):(\d{2})/) || joinedHead(line)
+    const std = line.match(/\b([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})\b.*?\b(\d{1,2}):(\d{2})/)
+    const head = (std && MONTHS[std[1].toLowerCase()] ? std : null) || joinedHead(line)
     if (head && MONTHS[head[1].toLowerCase()]) {
       const mm = String(MONTHS[head[1].toLowerCase()]).padStart(2, '0')
       out.date = `${year}-${mm}-${String(head[2]).padStart(2, '0')}`
