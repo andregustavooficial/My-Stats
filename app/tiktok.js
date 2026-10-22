@@ -24,6 +24,11 @@ const MONTHS = { jan: 1, feb: 2, fev: 2, mar: 3, apr: 4, abr: 4, may: 5, mai: 5,
 const VALUE = /^(US\$|USD)?\s?\d[\d.,]*\s?[KkMm]?$|^[\dOo]+\s?m\s?[\dOo]+\s?s$/
 
 const clean = s => s.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim()
+const cleanTitle = s => (s || '')
+  .replace(/[^\p{L}\p{N}\p{P} ]/gu, '')
+  .replace(/^[^\p{L}\p{N}]+/u, '')
+  .replace(/[\s.…•·\-–—|]+$/u, '')
+  .trim()
 const labelOf = s => LABELS.find(([, re]) => re.test(clean(s)))?.[0]
 
 function number(raw) {
@@ -73,13 +78,14 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
       const m = line.match(/(\d+)\s*(min|minutes?|minutos?)\b/i)
       if (h || m) out.duration_min = (h ? +h[1] * 60 : 0) + (m ? +m[1] : 0)
       // O título vem na linha anterior ou na mesma linha, antes da data
-      const before = line.slice(0, head.index).trim()
+      // (a leitura de imagem pode trazer lixo do avatar antes do título ou da data, então fica o candidato mais longo)
       const prev = lines[i - 1]
-      const title = before || (prev && !labelOf(prev) && !VALUE.test(prev) && !/live analysis|an[aá]lise/i.test(prev) ? prev : '')
-      if (title) out.title = title.replace(/[^\p{L}\p{N}\p{P} ]/gu, '').trim()
+      const title = [line.slice(0, head.index), prev && !labelOf(prev) && !VALUE.test(prev) && !/live analysis|an[aá]lise/i.test(prev) ? prev : '']
+        .map(cleanTitle).sort((a, b) => b.length - a.length)[0]
+      if (title.length >= 3) out.title = title
       // O resumo logo abaixo do cabeçalho começa com um número e mistura números e nomes;
       // os mesmos dados vêm de novo em "Key metrics", então ele é ignorado
-      inSummary = VALUE.test(lines[i + 1] ?? '')
+      inSummary = /^\S*\d/.test(lines[i + 1] ?? '')
       pending = []
       return
     }
@@ -101,5 +107,9 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
     }
     prevWasLabel = false
   })
+
+  // A leitura de imagem às vezes perde o ponto decimal ("48.1K" vira "481K"). Visualizações
+  // ficam perto dos espectadores únicos, então um valor 10 vezes maior denuncia o erro.
+  if (out.views && out.unique_viewers && out.views >= out.unique_viewers * 5) out.views = Math.round(out.views / 10)
   return out
 }
