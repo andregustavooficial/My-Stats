@@ -360,13 +360,12 @@ tr.next td { color: var(--pos); }
 .routine span { grid-column: 1; font-size: 13px; color: var(--muted); }
 .routine em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: 12px; color: var(--accent-2); text-align: right; max-width: 110px; }
 
-/* ---------- Diamantes desde o começo ---------- */
+/* ---------- Diamantes acumulados ---------- */
 
-.lifetime {
-  display: flex; flex-direction: column; gap: 8px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px;
-}
-.lifetime strong {
-  font-size: 32px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--gem, #8fe3ff);
-}
-.lifetime p { margin: 0; }
+.lifetime { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-bottom: -12px; }
+.lifetime div { padding: 10px 12px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.lifetime div + div { border-left: 1px solid var(--line); }
+.lifetime span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.lifetime b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.lifetime .gem b { color: #8fe3ff; }
+.lifetime small { grid-column: 1 / -1; border-top: 1px solid var(--line); padding: 6px 12px; font-size: 11px; color: var(--muted); }

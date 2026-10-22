@@ -241,6 +241,11 @@ async function renderHome() {
   const life = lifetime(lives)
 
   view.innerHTML = `
+    <div class="lifetime">
+      <div class="gem"><span>Diamantes acumulados</span><b>${esc(int(life.diamonds))}</b></div>
+      <div><span>Valor estimado</span><b>${esc(usd0(Math.round(life.usd)))}</b></div>
+      <small>desde nov/2023</small>
+    </div>
     <section class="hero">
       <div class="hero-head"><span>Saldo estimado do mês</span><i class="pill">${esc(monthLabel)}</i></div>
       <strong>${rate ? esc(brl(net * rate)) : esc(usd(net))}</strong>
@@ -256,12 +261,6 @@ async function renderHome() {
       <div class="txt"><span>${payout?.source === 'saque' ? 'Dólar do último saque' : 'Dólar estimado para saque'}</span><strong>${rate ? esc(brlRate(rate)) : '—'}</strong></div>
       <div class="calc">${payout?.source === 'saque' ? `comercial hoje<br><b>${commercial ? esc(brl(commercial)) : '—'}</b>` : commercial ? `comercial <b>${esc(brl(commercial))}</b><br>− R$ 0,18` : 'sem conexão'}</div>
     </div>
-    <section class="lifetime">
-      <div class="hero-head"><span>Diamantes desde o começo</span><i class="pill">desde nov/2023</i></div>
-      <strong>${esc(int(life.diamonds))}</strong>
-      <div class="row"><span>Recebido no total</span><b>${esc(usd(life.usd))}</b></div>
-      ${life.recentGems ? `<p class="muted small">Inclui ${esc(int(life.recentGems))} diamantes das lives registradas a partir de 19/10.</p>` : ''}
-    </section>
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
       <div class="grid">
