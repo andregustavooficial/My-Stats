@@ -1,7 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
 import { parseTikTok, parseWeekly, isWeeklyPrint } from './tiktok.js'
 import { readEach } from './ocr.js'
-import { WITHDRAW_FEE_USD, livePct, daysPct, weekStartOf, weekEndOf, weekDays, payoutRate, ledger, monthEarned, limitFor, LIMIT_TIERS } from './rewards.js'
+import { WITHDRAW_FEE_USD, livePct, daysPct, weekStartOf, weekEndOf, weekDays, payoutRate, ledger, monthEarned, limitFor, LIMIT_TIERS, lifetime } from './rewards.js'
 
 // A chave anon é pública por design; os dados são protegidos pelo RLS (supabase/schema.sql).
 const SUPABASE_URL = 'https://tolmprwwnishdohhhuad.supabase.co'
@@ -238,6 +238,7 @@ async function renderHome() {
   const payout = payoutRate(withdrawals, commercial)
   const rate = payout?.rate ?? null
   const perLive = ml.length ? rewards / ml.length : 0
+  const life = lifetime(lives)
 
   view.innerHTML = `
     <section class="hero">
@@ -255,6 +256,12 @@ async function renderHome() {
       <div class="txt"><span>${payout?.source === 'saque' ? 'Dólar do último saque' : 'Dólar estimado para saque'}</span><strong>${rate ? esc(brlRate(rate)) : '—'}</strong></div>
       <div class="calc">${payout?.source === 'saque' ? `comercial hoje<br><b>${commercial ? esc(brl(commercial)) : '—'}</b>` : commercial ? `comercial <b>${esc(brl(commercial))}</b><br>− R$ 0,18` : 'sem conexão'}</div>
     </div>
+    <section class="lifetime">
+      <div class="hero-head"><span>Diamantes desde o começo</span><i class="pill">desde nov/2023</i></div>
+      <strong>${esc(int(life.diamonds))}</strong>
+      <div class="row"><span>Recebido no total</span><b>${esc(usd(life.usd))}</b></div>
+      ${life.recentGems ? `<p class="muted small">Inclui ${esc(int(life.recentGems))} diamantes das lives registradas a partir de 19/10.</p>` : ''}
+    </section>
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
       <div class="grid">
@@ -312,7 +319,7 @@ const revealer = new IntersectionObserver(entries => {
 }, { rootMargin: '0px 0px -6% 0px' })
 
 function reveal(root) {
-  root.querySelectorAll('.hero, .rate, h2, .stat, .list li, .empty').forEach(el => {
+  root.querySelectorAll('.hero, .rate, .lifetime, h2, .stat, .list li, .empty').forEach(el => {
     const i = [...el.parentElement.children].indexOf(el)
     el.classList.add('reveal')
     el.style.transitionDelay = `${Math.min(i, 5) * 50}ms`

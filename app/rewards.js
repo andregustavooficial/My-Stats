@@ -98,3 +98,14 @@ export function limitFor(earned) {
   const next = LIMIT_TIERS.find(([min]) => min > earned)
   return { tier, next }
 }
+
+// Acumulado desde o começo da conta (nov/2023) até a semana de 12 a 18/10/2026, montado com o "In"
+// de cada mês (programa antigo, 50%: US$ × 200) e os extratos semanais desde 04/08/2025 (51%).
+// Ainda faltam os dias 1 a 3 de agosto de 2025.
+export const LIFETIME = { until: '2026-10-18', diamonds: 83994563, usd: 423916.71 }
+
+export function lifetime(lives) {
+  const recent = lives.filter(l => l.date > LIFETIME.until)
+  const gems = sum(recent, 'diamonds')
+  return { diamonds: LIFETIME.diamonds + gems, usd: LIFETIME.usd + gems * 0.01 * 0.51, recentGems: gems }
+}
