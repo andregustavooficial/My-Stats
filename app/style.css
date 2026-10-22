@@ -359,3 +359,14 @@ tr.next td { color: var(--pos); }
 .routine b { font-size: 15px; }
 .routine span { grid-column: 1; font-size: 13px; color: var(--muted); }
 .routine em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: 12px; color: var(--accent-2); text-align: right; max-width: 110px; }
+
+/* ---------- Diamantes desde o começo ---------- */
+
+.lifetime {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px;
+}
+.lifetime strong {
+  font-size: 32px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--gem, #8fe3ff);
+}
+.lifetime p { margin: 0; }
