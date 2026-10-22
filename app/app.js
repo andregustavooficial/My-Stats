@@ -125,16 +125,38 @@ function readCachedRate() {
   try { return JSON.parse(localStorage.getItem('usd-brl')) } catch { return null }
 }
 
-// Dólar comercial do dia (AwesomeAPI, gratuita e sem chave)
-async function loadRate() {
-  try {
+// Dólar comercial do dia: AwesomeAPI (gratuita, sem chave, atualiza o dia todo).
+// Se ela falhar, a reserva é a PTAX do Banco Central, a cotação oficial (só em dias úteis).
+const RATE_SOURCES = [
+  async () => {
     const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL')
     const q = (await res.json()).USDBRL
-    state.rate = { commercial: Number(q.bid), at: q.create_date }
-    try { localStorage.setItem('usd-brl', JSON.stringify(state.rate)) } catch {}
-  } catch {
-    // Sem internet: segue com a última cotação salva
+    return { commercial: Number(q.bid), at: q.create_date, source: 'AwesomeAPI' }
+  },
+  async () => {
+    const day = d => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${d.getFullYear()}`
+    const end = new Date()
+    const start = new Date(end.getTime() - 7 * 864e5)   // fins de semana e feriados não têm PTAX
+    const url = 'https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)'
+      + `?@dataInicial='${day(start)}'&@dataFinalCotacao='${day(end)}'&$format=json&$orderby=dataHoraCotacao%20desc&$top=1`
+    const q = (await (await fetch(url)).json()).value[0]
+    return { commercial: Number(q.cotacaoVenda), at: q.dataHoraCotacao, source: 'Banco Central' }
+  },
+]
+
+async function loadRate() {
+  for (const source of RATE_SOURCES) {
+    try {
+      const rate = await source()
+      if (!(rate.commercial > 0)) continue
+      state.rate = rate
+      try { localStorage.setItem('usd-brl', JSON.stringify(rate)) } catch {}
+      return rate
+    } catch {
+      // tenta a próxima fonte
+    }
   }
+  // Sem internet: segue com a última cotação salva
   return state.rate
 }
 
@@ -259,7 +281,7 @@ async function renderHome() {
     <div class="rate">
       <div class="flag">US$</div>
       <div class="txt"><span>${payout?.source === 'saque' ? 'Dólar do último saque' : 'Dólar estimado para saque'}</span><strong>${rate ? esc(brlRate(rate)) : '—'}</strong></div>
-      <div class="calc">${payout?.source === 'saque' ? `comercial hoje<br><b>${commercial ? esc(brl(commercial)) : '—'}</b>` : commercial ? `comercial <b>${esc(brl(commercial))}</b><br>− R$ 0,18` : 'sem conexão'}</div>
+      <div class="calc">${payout?.source === 'saque' ? `comercial hoje<br><b>${commercial ? esc(brl(commercial)) : '—'}</b>` : commercial ? `comercial <b>${esc(brl(commercial))}</b><br>− R$ 0,18` : 'sem conexão'}${state.rate?.source === 'Banco Central' ? '<br>(Banco Central)' : ''}</div>
     </div>
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
