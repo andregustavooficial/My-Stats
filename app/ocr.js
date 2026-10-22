@@ -111,15 +111,20 @@ function countOrangeDots(color, w, y0, y1) {
 // dos nomes da coluna dos valores, e no print cada nome fica na mesma altura do seu valor.
 function rows(words) {
   const sorted = words
-    .map(w => ({ text: w.text, x: w.bbox.x0, y: (w.bbox.y0 + w.bbox.y1) / 2, h: w.bbox.y1 - w.bbox.y0 }))
-    .sort((a, b) => a.y - b.y)
+    .map(w => ({ text: w.text, x: w.bbox.x0, y0: w.bbox.y0, y1: w.bbox.y1, h: w.bbox.y1 - w.bbox.y0 }))
+    .sort((a, b) => a.y0 + a.y1 - b.y0 - b.y1)
   const out = []
   for (const w of sorted) {
+    // mesma linha quando as alturas se sobrepõem em boa parte: letras minúsculas ("hours")
+    // e números ("2") da mesma linha não têm o mesmo centro, mas se sobrepõem
     const row = out.at(-1)
-    if (row && Math.abs(w.y - row.y) < Math.max(w.h, row.h) * 0.6) row.words.push(w)
-    else out.push({ y: w.y, h: w.h, words: [w] })
+    const overlap = row ? Math.min(w.y1, row.y1) - Math.max(w.y0, row.y0) : 0
+    if (row && overlap > Math.min(w.h, row.h) * 0.4) {
+      row.words.push(w)
+      row.y0 = Math.min(row.y0, w.y0); row.y1 = Math.max(row.y1, w.y1); row.h = row.y1 - row.y0
+    } else out.push({ y0: w.y0, y1: w.y1, h: w.h, words: [w] })
   }
-  return out.map(r => r.words.sort((a, b) => a.x - b.x))
+  return out.map(r => r.words.sort((a, b) => a.x - b.x).map(w => ({ ...w, y: (w.y0 + w.y1) / 2 })))
 }
 
 // O Tesseract engole o ponto em números como "2.1K" (sai "21K"). O ponto é uma mancha pequena,

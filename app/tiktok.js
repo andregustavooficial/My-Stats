@@ -24,10 +24,12 @@ const MONTHS = { jan: 1, feb: 2, fev: 2, mar: 3, apr: 4, abr: 4, may: 5, mai: 5,
 const VALUE = /^(US\$|USD)?\s?\d[\d.,]*\s?[KkMm]?$|^[\dOo]+\s?m\s?[\dOo]+\s?s$/
 
 const clean = s => s.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim()
+// Emojis não são lidos e às vezes viram um símbolo solto ("LET'S SING &"): sai tudo que não for texto nas pontas
 const cleanTitle = s => (s || '')
   .replace(/[^\p{L}\p{N}\p{P} ]/gu, '')
   .replace(/^[^\p{L}\p{N}]+/u, '')
-  .replace(/[\s.…•·\-–—|]+$/u, '')
+  .replace(/(\s+[^\p{L}\p{N}\s]{1,2})+$/u, '')
+  .replace(/[\s.…•·\-–—|&©®@#*~^]+$/u, '')
   .trim()
 const labelOf = s => LABELS.find(([, re]) => re.test(clean(s)))?.[0]
 
@@ -52,6 +54,20 @@ function convert(key, raw) {
   return key === 'rewards_usd' ? Math.round(n * 100) / 100 : Math.round(n)
 }
 
+// A leitura às vezes junta o dia com a hora: "Oct 17:03 PM" é Oct 1, 7:03 PM (não existe 17h com PM).
+// Separa os dígitos de forma que a hora fique entre 1 e 12 e o dia entre 1 e 31.
+function joinedHead(line) {
+  const m = line.match(/\b([A-Za-z]{3})[a-z]*\.?\s+(\d{2,4}):(\d{2})\s*([AP]M)?/i)
+  if (!m) return null
+  const digits = m[2]
+  for (const cut of [digits.length - 1, digits.length - 2]) {
+    if (cut < 1) continue
+    const day = Number(digits.slice(0, cut)), hour = Number(digits.slice(cut))
+    if (day >= 1 && day <= 31 && hour >= 1 && hour <= 12) return Object.assign([m[0], m[1], day, hour, m[3]], { index: m.index })
+  }
+  return null
+}
+
 export function parseTikTok(text, year = new Date().getFullYear()) {
   const out = {}
   const strength = {}
@@ -70,17 +86,23 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
 
   lines.forEach((line, i) => {
     // Cabeçalho: "Oct 20 11:42 AM · 3 hours 12 min"
-    const head = line.match(/\b([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})\b.*?\b(\d{1,2}):(\d{2})/)
+    const head = line.match(/\b([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})\b.*?\b(\d{1,2}):(\d{2})/) || joinedHead(line)
     if (head && MONTHS[head[1].toLowerCase()]) {
       const mm = String(MONTHS[head[1].toLowerCase()]).padStart(2, '0')
-      out.date = `${year}-${mm}-${head[2].padStart(2, '0')}`
+      out.date = `${year}-${mm}-${String(head[2]).padStart(2, '0')}`
       const h = line.match(/(\d+)\s*(hours?|horas?|h)\b/i)
       const m = line.match(/(\d+)\s*(min|minutes?|minutos?)\b/i)
+      // "- 2 20" com "hours min" partido em outra linha: os dois últimos números depois do horário
+      if (!h && !m) {
+        const after = line.slice(line.search(/\d{1,2}:\d{2}/) + 4).match(/(\d+)\D+(\d+)\s*$/)
+        if (after && /hours?\s+min/i.test(lines[i - 1] + ' ' + (lines[i + 1] ?? ''))) out.duration_min = +after[1] * 60 + +after[2]
+      }
       if (h || m) out.duration_min = (h ? +h[1] * 60 : 0) + (m ? +m[1] : 0)
       // O título vem na linha anterior ou na mesma linha, antes da data
       // (a leitura de imagem pode trazer lixo do avatar antes do título ou da data, então fica o candidato mais longo)
-      const prev = lines[i - 1]
-      const title = [line.slice(0, head.index), prev && !labelOf(prev) && !VALUE.test(prev) && !/live analysis|an[aá]lise/i.test(prev) ? prev : '']
+      const isTitle = l => l && !labelOf(l) && !VALUE.test(l) && !/live analysis|an[aá]lise|^\W*hours?\s+min/i.test(l)
+      const prev = [lines[i - 1], lines[i - 2]].find(isTitle)
+      const title = [line.slice(0, head.index), prev || '']
         .map(cleanTitle).sort((a, b) => b.length - a.length)[0]
       if (title.length >= 3) out.title = title
       // O resumo logo abaixo do cabeçalho começa com um número e mistura números e nomes;
@@ -112,6 +134,14 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
   // A leitura de imagem às vezes perde o ponto decimal ("48.1K" vira "481K"). Visualizações
   // ficam perto dos espectadores únicos, então um valor 10 vezes maior denuncia o erro.
   if (out.views && out.unique_viewers && out.views >= out.unique_viewers * 5) out.views = Math.round(out.views / 10)
+  // A recompensa é diamantes × US$ 0,01 × 20% a 40%. Se o ponto se perdeu ("USD20309"), volta duas casas.
+  if (out.rewards_usd && out.diamonds) {
+    const ratio = r => r / (out.diamonds * 0.01)
+    for (const fix of [1, 100, 10]) {
+      const r = Math.round(out.rewards_usd / fix * 100) / 100
+      if (ratio(r) >= 0.15 && ratio(r) <= 0.45) { out.rewards_usd = r; break }
+    }
+  }
   return out
 }
 
