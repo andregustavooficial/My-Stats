@@ -75,7 +75,6 @@ const ENTITIES = {
       tag: r.status,
     }),
   },
-  tasks: { table: 'tasks', order: ['created_at', true] },
   agenda: {
     table: 'live_plans', title: 'Agenda', single: 'live planejada', order: ['scheduled_at', true],
     fields: [
@@ -174,7 +173,7 @@ function go(tab) {
 async function renderHome() {
   const view = document.getElementById('view')
   view.innerHTML = '<p class="muted center">Carregando…</p>'
-  const [lives, payments, videos, agenda, allTasks] = await Promise.all(['lives', 'payments', 'videos', 'agenda', 'tasks'].map(load))
+  const [lives, payments, videos, agenda] = await Promise.all(['lives', 'payments', 'videos', 'agenda'].map(load))
   if (state.tab !== 'home') return
 
   const month = today().slice(0, 7)
@@ -190,8 +189,6 @@ async function renderHome() {
   const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' })
 
   const monthLabel = monthName[0].toUpperCase() + monthName.slice(1)
-  state.data.tasks = allTasks
-  const tasks = allTasks.filter(t => !t.done)
 
   view.innerHTML = `
     <section class="hero">
@@ -201,14 +198,6 @@ async function renderHome() {
         <svg viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M12 21L8 9l4-6 4 6z"/></svg>
         <b>${esc(int(sum(ml, 'diamonds')))}</b><span>diamantes registrados</span>
       </div>
-    </section>
-    <section class="tasks">
-      <div class="card-head"><h2>Tarefas</h2><span id="task-count" class="muted">${taskCount(tasks.length)}</span></div>
-      <ul class="checklist">${tasks.map(taskItem).join('')}</ul>
-      <form id="new-task" class="add-task">
-        <input name="title" placeholder="Nova tarefa…" autocomplete="off" enterkeyhint="done" aria-label="Nova tarefa">
-        <button class="icon-btn small" aria-label="Adicionar tarefa"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-      </form>
     </section>
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
@@ -240,60 +229,8 @@ async function renderHome() {
     </section>
     <button id="logout" class="btn ghost">Sair</button>`
   bindList(view)
-  bindTasks(view)
   reveal(view)
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
-}
-
-// ---------- Tarefas ----------
-
-const taskCount = n => n ? `${n} pendente${n > 1 ? 's' : ''}` : 'tudo em dia'
-const taskItem = t => `
-  <li data-task="${t.id}">
-    <button class="check" aria-label="Concluir tarefa"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
-    <span>${esc(t.title)}</span>
-  </li>`
-
-function updateTaskCount() {
-  document.getElementById('task-count').textContent = taskCount(state.data.tasks.filter(t => !t.done).length)
-}
-
-function bindTasks(root) {
-  const ul = root.querySelector('.checklist')
-  ul.addEventListener('click', async ev => {
-    const btn = ev.target.closest('.check')
-    if (!btn) return
-    const li = btn.closest('li')
-    if (li.classList.contains('done')) return
-    li.classList.add('done')
-    const task = state.data.tasks.find(t => t.id === li.dataset.task)
-    const { error } = await sb.from('tasks').update({ done: true, done_at: new Date().toISOString() }).eq('id', task.id)
-    if (error) { li.classList.remove('done'); return toast('Erro ao concluir: ' + error.message) }
-    task.done = true
-    updateTaskCount()
-    setTimeout(() => collapse(li), 450)
-  })
-  root.querySelector('#new-task').addEventListener('submit', async ev => {
-    ev.preventDefault()
-    const input = ev.target.title
-    const title = input.value.trim()
-    if (!title) return
-    input.value = ''
-    const { data, error } = await sb.from('tasks').insert({ title }).select().single()
-    if (error) { input.value = title; return toast('Erro ao salvar: ' + error.message) }
-    state.data.tasks.push(data)
-    ul.insertAdjacentHTML('beforeend', taskItem(data))
-    ul.lastElementChild.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' })
-    updateTaskCount()
-  })
-}
-
-function collapse(el) {
-  const h = el.offsetHeight
-  el.animate(
-    [{ height: `${h}px`, opacity: 1 }, { height: '0px', opacity: 0, paddingTop: '0px', paddingBottom: '0px' }],
-    { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
-  ).finished.then(() => el.remove())
 }
 
 // ---------- Animação ao rolar ----------
@@ -307,7 +244,7 @@ const revealer = new IntersectionObserver(entries => {
 }, { rootMargin: '0px 0px -6% 0px' })
 
 function reveal(root) {
-  root.querySelectorAll('.hero, .card-head, h2, .stat, .list li, .checklist li, .add-task, .empty').forEach(el => {
+  root.querySelectorAll('.hero, h2, .stat, .list li, .empty').forEach(el => {
     const i = [...el.parentElement.children].indexOf(el)
     el.classList.add('reveal')
     el.style.transitionDelay = `${Math.min(i, 5) * 50}ms`
