@@ -1232,7 +1232,11 @@ function showWeekly(result, texts) {
   result.querySelector('[data-save-week]').addEventListener('click', async ev => {
     ev.target.disabled = true
     const { error } = await sb.from('reward_snapshots').insert(data)
-    if (error) { ev.target.disabled = false; return toast('Erro ao salvar: ' + error.message) }
+    if (error) {
+      ev.target.disabled = false
+      // o aviso comum fica atrás da janela aberta: mostra o erro dentro dela
+      return result.insertAdjacentHTML('beforeend', `<p class="small neg">Não salvou: ${esc(error.message)}</p>`)
+    }
     closeSheet()
     toast('Semana atualizada')
     if (state.tab === 'rewards') renderRewards()
