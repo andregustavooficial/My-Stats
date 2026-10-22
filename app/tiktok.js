@@ -200,8 +200,13 @@ export function parseWeekly(text, now = new Date()) {
     out.week_diamonds = Math.round(Number(card[2]) * (/k/i.test(card[3]) ? 1e3 : 1e6))
   }
   // A porcentagem sai embaralhada na leitura; ela é o valor dividido pelos diamantes
+  // O semanal vai de 6% (1 dia válido) a 13%. Se a conta sair fora disso, a leitura errou a escala dos diamantes
+  // ("231.9K" sem o K ou sem o ponto): ajusta a escala; se nada bater, descarta os dois
   if (out.upcoming_usd != null && out.week_diamonds) {
-    out.weekly_pct = Math.round((out.upcoming_usd / (out.week_diamonds * 0.01)) * 200) / 2
+    const pctFor = g => Math.round((out.upcoming_usd / (g * 0.01)) * 200) / 2
+    const scale = [1, 10, 100, 1000, 0.1, 0.01].find(k => { const p = pctFor(out.week_diamonds * k); return p >= 6 && p <= 13 })
+    if (scale) { out.week_diamonds = Math.round(out.week_diamonds * scale); out.weekly_pct = pctFor(out.week_diamonds) }
+    else delete out.week_diamonds
   }
 
   const league = text.match(/maintain league\s+([A-D])\s?([1-5lIi|])/i)
