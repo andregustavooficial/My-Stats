@@ -88,15 +88,61 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: upp
     linear-gradient(155deg, #145234, #0b2a1c 70%);
   border: 1px solid rgb(246 217 142 / 0.14);
 }
-.hero span { font-size: 13px; color: rgb(238 246 241 / 0.7); }
+.hero-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hero-head span { font-size: 14px; color: rgb(238 246 241 / 0.75); }
+.pill {
+  font-style: normal; font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  padding: 4px 10px; border-radius: 99px;
+  color: var(--accent-2); background: rgb(227 182 90 / 0.14); border: 1px solid rgb(246 217 142 / 0.2);
+}
 .hero strong {
-  display: block; margin: 4px 0 14px;
+  display: block; margin: 8px 0 16px;
   font-size: 38px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
   background: linear-gradient(180deg, var(--accent-2), var(--accent));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.hero .row { display: flex; gap: 20px; font-size: 14px; color: rgb(238 246 241 / 0.8); }
-.hero .row b { display: block; font-size: 17px; color: var(--text); font-variant-numeric: tabular-nums; }
+.gems {
+  display: flex; align-items: center; gap: 8px;
+  padding-top: 14px; border-top: 1px solid rgb(246 217 142 / 0.12);
+}
+.gems svg { width: 20px; height: 20px; color: #8fe3ff; }
+.gems b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.gems span { font-size: 14px; color: rgb(238 246 241 / 0.7); }
+
+/* ---------- Tarefas ---------- */
+
+.tasks { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+.card-head h2 { margin: 0; }
+.card-head span { font-size: 13px; }
+.checklist { list-style: none; margin: 0; padding: 0; }
+.checklist li { display: flex; align-items: center; gap: 12px; padding: 10px 0; overflow: hidden; }
+.checklist li + li { border-top: 1px solid var(--line); }
+.checklist li span { flex: 1; min-width: 0; overflow-wrap: anywhere; transition: color 200ms ease, opacity 200ms ease; }
+.check {
+  flex: none; width: 26px; height: 26px; padding: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: none; border: 2px solid var(--muted); color: var(--on-accent);
+  transition: background-color 200ms ease, border-color 200ms ease, transform 160ms var(--ease-out);
+}
+.check:active { transform: scale(0.88); }
+.check svg { width: 16px; height: 16px; stroke-width: 3; stroke-dasharray: 22; stroke-dashoffset: 22; transition: stroke-dashoffset 280ms var(--ease-out) 60ms; }
+.checklist li.done .check { background: var(--accent); border-color: var(--accent); }
+.checklist li.done .check svg { stroke-dashoffset: 0; }
+.checklist li.done span { color: var(--muted); text-decoration: line-through; opacity: 0.7; }
+.add-task { display: flex; gap: 10px; margin-top: 10px; }
+.add-task input {
+  flex: 1; min-width: 0; font-size: 16px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; outline: none;
+}
+.add-task input:focus { border-color: var(--accent); }
+.icon-btn.small { width: 42px; height: 42px; box-shadow: none; }
+
+/* ---------- Animação ao rolar ---------- */
+
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity 500ms var(--ease-out), transform 600ms var(--ease-out); }
+.reveal.in { opacity: 1; transform: none; }
 
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .stat {
@@ -211,4 +257,5 @@ dialog#sheet.closing::backdrop { animation: fade-out 200ms ease-in forwards; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after, dialog#sheet::backdrop { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  .reveal { opacity: 1; transform: none; }
 }

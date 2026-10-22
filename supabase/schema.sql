@@ -50,10 +50,19 @@ create table if not exists public.live_plans (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.tasks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  title text not null,
+  done boolean not null default false,
+  done_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 do $$
 declare t text;
 begin
-  foreach t in array array['lives','payments','video_plans','live_plans'] loop
+  foreach t in array array['lives','payments','video_plans','live_plans','tasks'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists "owner" on public.%I', t);
     execute format(

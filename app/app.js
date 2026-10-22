@@ -75,6 +75,7 @@ const ENTITIES = {
       tag: r.status,
     }),
   },
+  tasks: { table: 'tasks', order: ['created_at', true] },
   agenda: {
     table: 'live_plans', title: 'Agenda', single: 'live planejada', order: ['scheduled_at', true],
     fields: [
@@ -173,7 +174,7 @@ function go(tab) {
 async function renderHome() {
   const view = document.getElementById('view')
   view.innerHTML = '<p class="muted center">Carregando…</p>'
-  const [lives, payments, videos, agenda] = await Promise.all(['lives', 'payments', 'videos', 'agenda'].map(load))
+  const [lives, payments, videos, agenda, allTasks] = await Promise.all(['lives', 'payments', 'videos', 'agenda', 'tasks'].map(load))
   if (state.tab !== 'home') return
 
   const month = today().slice(0, 7)
@@ -188,14 +189,26 @@ async function renderHome() {
   const inProgress = videos.filter(v => v.status !== 'postado')
   const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' })
 
+  const monthLabel = monthName[0].toUpperCase() + monthName.slice(1)
+  state.data.tasks = allTasks
+  const tasks = allTasks.filter(t => !t.done)
+
   view.innerHTML = `
     <section class="hero">
-      <span>Ganhos das lives em ${esc(monthName)}</span>
+      <div class="hero-head"><span>Faturamento do mês</span><i class="pill">${esc(monthLabel)}</i></div>
       <strong>${esc(brl(sum(ml, 'earnings')))}</strong>
-      <div class="row">
-        <div>Recebido<b>${esc(brl(received))}</b></div>
-        <div>A receber<b>${esc(brl(pending))}</b></div>
+      <div class="gems">
+        <svg viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M12 21L8 9l4-6 4 6z"/></svg>
+        <b>${esc(int(sum(ml, 'diamonds')))}</b><span>diamantes registrados</span>
       </div>
+    </section>
+    <section class="tasks">
+      <div class="card-head"><h2>Tarefas</h2><span id="task-count" class="muted">${taskCount(tasks.length)}</span></div>
+      <ul class="checklist">${tasks.map(taskItem).join('')}</ul>
+      <form id="new-task" class="add-task">
+        <input name="title" placeholder="Nova tarefa…" autocomplete="off" enterkeyhint="done" aria-label="Nova tarefa">
+        <button class="icon-btn small" aria-label="Adicionar tarefa"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      </form>
     </section>
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
@@ -203,14 +216,16 @@ async function renderHome() {
         ${stat('Lives', int(ml.length))}
         ${stat('Horas ao vivo', hours(sum(ml, 'duration_min')))}
         ${stat('Novos seguidores', int(sum(ml, 'new_followers')))}
+        ${stat('Média por live', brl(ml.length ? sum(ml, 'earnings') / ml.length : 0))}
         ${stat('Pico médio', int(ml.length ? Math.round(sum(ml, 'peak_viewers') / ml.length) : 0))}
         ${stat('Público médio', int(ml.length ? Math.round(sum(ml, 'avg_viewers') / ml.length) : 0))}
-        ${stat('Diamantes', int(sum(ml, 'diamonds')))}
       </div>
     </section>
     <section>
       <h2>Grana em ${esc(monthName)}</h2>
       <div class="grid">
+        ${stat('Recebido', brl(received), 'pos')}
+        ${stat('A receber', brl(pending), 'warn')}
         ${stat('Gasto', brl(spent), 'neg')}
         ${stat('Saldo', brl(received - spent), received - spent >= 0 ? 'pos' : 'neg')}
       </div>
@@ -225,7 +240,79 @@ async function renderHome() {
     </section>
     <button id="logout" class="btn ghost">Sair</button>`
   bindList(view)
+  bindTasks(view)
+  reveal(view)
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
+}
+
+// ---------- Tarefas ----------
+
+const taskCount = n => n ? `${n} pendente${n > 1 ? 's' : ''}` : 'tudo em dia'
+const taskItem = t => `
+  <li data-task="${t.id}">
+    <button class="check" aria-label="Concluir tarefa"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    <span>${esc(t.title)}</span>
+  </li>`
+
+function updateTaskCount() {
+  document.getElementById('task-count').textContent = taskCount(state.data.tasks.filter(t => !t.done).length)
+}
+
+function bindTasks(root) {
+  const ul = root.querySelector('.checklist')
+  ul.addEventListener('click', async ev => {
+    const btn = ev.target.closest('.check')
+    if (!btn) return
+    const li = btn.closest('li')
+    if (li.classList.contains('done')) return
+    li.classList.add('done')
+    const task = state.data.tasks.find(t => t.id === li.dataset.task)
+    const { error } = await sb.from('tasks').update({ done: true, done_at: new Date().toISOString() }).eq('id', task.id)
+    if (error) { li.classList.remove('done'); return toast('Erro ao concluir: ' + error.message) }
+    task.done = true
+    updateTaskCount()
+    setTimeout(() => collapse(li), 450)
+  })
+  root.querySelector('#new-task').addEventListener('submit', async ev => {
+    ev.preventDefault()
+    const input = ev.target.title
+    const title = input.value.trim()
+    if (!title) return
+    input.value = ''
+    const { data, error } = await sb.from('tasks').insert({ title }).select().single()
+    if (error) { input.value = title; return toast('Erro ao salvar: ' + error.message) }
+    state.data.tasks.push(data)
+    ul.insertAdjacentHTML('beforeend', taskItem(data))
+    ul.lastElementChild.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' })
+    updateTaskCount()
+  })
+}
+
+function collapse(el) {
+  const h = el.offsetHeight
+  el.animate(
+    [{ height: `${h}px`, opacity: 1 }, { height: '0px', opacity: 0, paddingTop: '0px', paddingBottom: '0px' }],
+    { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+  ).finished.then(() => el.remove())
+}
+
+// ---------- Animação ao rolar ----------
+
+const revealer = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue
+    e.target.classList.add('in')
+    revealer.unobserve(e.target)
+  }
+}, { rootMargin: '0px 0px -6% 0px' })
+
+function reveal(root) {
+  root.querySelectorAll('.hero, .card-head, h2, .stat, .list li, .checklist li, .add-task, .empty').forEach(el => {
+    const i = [...el.parentElement.children].indexOf(el)
+    el.classList.add('reveal')
+    el.style.transitionDelay = `${Math.min(i, 5) * 50}ms`
+    revealer.observe(el)
+  })
 }
 
 const stat = (label, value, tone = '') => `<div class="stat ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`
@@ -266,6 +353,7 @@ function paint(name) {
   const rows = state.data[name] || []
   view.innerHTML = rows.length ? list(name, rows) : empty(`Nada por aqui ainda.`, name)
   bindList(view)
+  reveal(view)
 }
 
 // ---------- Formulário ----------
