@@ -1,5 +1,6 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
 import { parseTikTok } from './tiktok.js'
+import { readScreenshots } from './ocr.js'
 
 // A chave anon é pública por design; os dados são protegidos pelo RLS (supabase/schema.sql).
 const SUPABASE_URL = 'https://tolmprwwnishdohhhuad.supabase.co'
@@ -396,9 +397,14 @@ function openForm(name, row) {
       </div>
       ${e.importer ? `
       <div class="importer">
-        <button type="button" class="btn primary" data-paste>Colar dados do print</button>
-        <p class="muted">No app Fotos, abra o print, toque no ícone de texto e em <b>Copiar tudo</b>. Depois toque no botão acima. Repita para as 3 abas.</p>
-        <textarea id="import-text" rows="4" placeholder="Ou cole o texto aqui…" aria-label="Texto do print"></textarea>
+        <label class="btn primary file-btn" for="import-files">Escolher prints</label>
+        <input id="import-files" type="file" accept="image/*" multiple hidden>
+        <p class="muted">Selecione os 3 prints da live (Viewership, Engagement e Rewards) de uma vez.</p>
+        <details>
+          <summary>Colar texto em vez disso</summary>
+          <button type="button" class="btn" data-paste>Colar dados do print</button>
+          <textarea id="import-text" rows="3" placeholder="Ou cole o texto aqui…" aria-label="Texto do print"></textarea>
+        </details>
         <span id="import-status" class="muted" role="status"></span>
       </div>` : ''}
       <div class="fields">${e.fields.map(f => input(f, editing ? row[f.key] : f.default?.() ?? '')).join('')}</div>
@@ -453,6 +459,20 @@ function bindImporter(form, e) {
     status.textContent = 'Cole o texto na caixa abaixo.'
   })
   box.addEventListener('input', () => { if (box.value.trim()) { apply(box.value); box.value = '' } })
+  const files = form.querySelector('#import-files')
+  const pick = form.querySelector('.file-btn')
+  files.addEventListener('change', async () => {
+    if (!files.files.length) return
+    pick.classList.add('busy')
+    try {
+      apply(await readScreenshots([...files.files], msg => { status.textContent = msg }))
+    } catch (err) {
+      status.textContent = err.message || 'Não consegui ler os prints. Tente colar o texto.'
+    } finally {
+      pick.classList.remove('busy')
+      files.value = ''
+    }
+  })
 }
 
 function closeSheet() {
