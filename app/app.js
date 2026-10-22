@@ -160,6 +160,8 @@ async function loadRate() {
 }
 
 function toast(msg) {
+  // com uma janela aberta, o aviso precisa estar dentro dela para aparecer por cima
+  ;(sheet.open && !sheet.classList.contains('closing') ? sheet : document.body).append(toastEl)
   toastEl.textContent = msg
   toastEl.classList.add('show')
   clearTimeout(toast.t)
@@ -224,6 +226,23 @@ function renderShell() {
   go(state.tab)
 }
 
+// O que cada aba precisa do banco
+const NEEDS = { home: ['lives', 'withdrawals'], lives: ['lives'], stats: ['lives', 'withdrawals'], rewards: ['lives', 'withdrawals', 'snapshots'] }
+const DRAW = { home: a => renderHome(a), lives: a => renderLives(a), stats: a => renderStats(a), rewards: a => renderRewards(a) }
+
+async function fetchFor(tab) {
+  const sig = () => JSON.stringify([...NEEDS[tab].map(n => state.data[n]), state.data.settings, state.rate?.commercial])
+  const before = sig()
+  await Promise.all([...NEEDS[tab].map(load), tab === 'rewards' && loadSettings(), tab !== 'lives' && freshRate()])
+  return sig() !== before
+}
+
+// Busca de novo e redesenha só se algo mudou, sem animação (depois de salvar, ao voltar para o app)
+async function reload(tab = state.tab) {
+  if (!DRAW[tab]) return
+  if (await fetchFor(tab) && state.tab === tab) DRAW[tab](false)
+}
+
 function go(tab) {
   state.tab = tab
   app.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab))
@@ -232,17 +251,19 @@ function go(tab) {
   document.getElementById('prints').hidden = !['lives', 'rewards'].includes(tab)
   if (tab !== 'rewards' && tab !== 'stats') document.getElementById('add').setAttribute('aria-label', tab === 'home' ? 'Adicionar live' : `Adicionar ${ENTITIES[tab].single}`)
   window.scrollTo(0, 0)
-  return tab === 'home' ? renderHome() : tab === 'rewards' ? renderRewards() : tab === 'lives' ? renderLives() : tab === 'stats' ? renderStats() : renderList(tab)
+  if (!DRAW[tab]) return renderList(tab)
+  // Com dados na memória, desenha na hora (sem "Carregando…") e atualiza por trás
+  const cached = NEEDS[tab].every(n => state.data[n]) && (tab !== 'rewards' || state.data.settings)
+  if (cached) DRAW[tab](true)
+  else document.getElementById('view').innerHTML = '<p class="muted center">Carregando…</p>'
+  fetchFor(tab).then(changed => { if (state.tab === tab && (changed || !cached)) DRAW[tab](!cached) })
 }
 
 // ---------- Início ----------
 
-async function renderHome() {
+function renderHome(animate) {
   const view = document.getElementById('view')
-  view.innerHTML = '<p class="muted center">Carregando…</p>'
-  const [lives, withdrawals] = await Promise.all(['lives', 'withdrawals'].map(load))
-  await freshRate()
-  if (state.tab !== 'home') return
+  const { lives, withdrawals } = state.data
 
   const month = today().slice(0, 7)
   const ml = lives.filter(l => l.date?.startsWith(month))
@@ -298,7 +319,7 @@ async function renderHome() {
     </section>
     <button id="logout" class="btn ghost">Sair</button>`
   bindList(view)
-  reveal(view)
+  if (animate) reveal(view)
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
 }
 
@@ -469,7 +490,8 @@ function parse(f, raw) {
   if (f.type === 'int') return parseInt(s, 10)
   if (f.type === 'money') {
     // "1.500,50" e "1500.50" viram 1500.5
-    const n = Number(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s)
+    const thousands = !s.includes(',') && /^\d{1,3}(\.\d{3})+$/.test(s)   // "1.500" = mil e quinhentos
+    const n = Number(s.includes(',') || thousands ? s.replace(/\./g, '').replace(',', '.') : s)
     if (Number.isNaN(n)) throw new Error(`Valor inválido em "${f.label}"`)
     return n
   }
@@ -513,7 +535,7 @@ function openForm(name, row, prefill) {
     if (!confirm('Excluir este registro?')) return
     const { error } = await sb.from(e.table).delete().eq('id', row.id)
     if (error) return toast('Erro ao excluir: ' + error.message)
-    closeSheet(); toast('Excluído'); go(state.tab)
+    closeSheet(); toast('Excluído'); reload()
   })
   form.addEventListener('submit', async ev => {
     ev.preventDefault()
@@ -522,10 +544,14 @@ function openForm(name, row, prefill) {
       const fd = new FormData(form)
       values = Object.fromEntries(e.fields.map(f => [f.key, parse(f, fd.get(f.key))]))
     } catch (err) { return toast(err.message) }
+    // trava o botão: dois toques rápidos em "Salvar" criavam a live duas vezes
+    const save = form.querySelector('[type=submit]')
+    if (save.disabled) return
+    save.disabled = true
     const q = editing ? sb.from(e.table).update(values).eq('id', row.id) : sb.from(e.table).insert(values)
     const { error } = await q
-    if (error) return toast('Erro ao salvar: ' + error.message)
-    closeSheet(); toast('Salvo'); go(state.tab)
+    if (error) { save.disabled = false; return toast('Erro ao salvar: ' + error.message) }
+    closeSheet(); toast('Salvo'); reload()
   })
   sheet.showModal()
   // o iPhone foca o primeiro botão ao abrir (o "Cancelar") e desenha um contorno nele
@@ -697,11 +723,9 @@ function recordsCard(lives) {
 
 const perHour = l => (l.duration_min ? (Number(l.diamonds) || 0) / (l.duration_min / 60) : 0)
 
-async function renderLives() {
+function renderLives(animate) {
   const view = document.getElementById('view')
-  if (!state.data.lives) view.innerHTML = '<p class="muted center">Carregando…</p>'
-  const lives = await load('lives')
-  if (state.tab !== 'lives') return
+  const { lives } = state.data
   const months = [...new Set([today().slice(0, 7), ...lives.map(l => l.date?.slice(0, 7)).filter(Boolean)])].sort()
   if (!months.includes(state.lmonth)) state.lmonth = months.at(-1)
   const i = months.indexOf(state.lmonth)
@@ -786,17 +810,14 @@ async function renderLives() {
   }))
   view.querySelectorAll('[data-lsort]').forEach(b => b.addEventListener('click', () => { state.lsort = b.dataset.lsort; renderLives() }))
   bindList(view)
-  reveal(view)
+  if (animate) reveal(view)
 }
 
 // ---------- Estatísticas ----------
 
-async function renderStats() {
+function renderStats(animate) {
   const view = document.getElementById('view')
-  if (!state.data.lives) view.innerHTML = '<p class="muted center">Carregando…</p>'
-  const [lives, withdrawals] = await Promise.all(['lives', 'withdrawals'].map(load))
-  await freshRate()
-  if (state.tab !== 'stats') return
+  const { lives, withdrawals } = state.data
   const current = today().slice(0, 7)
   const months = [...new Set([current, ...lives.map(l => l.date?.slice(0, 7)).filter(Boolean)])].sort()
   if (!months.includes(state.smonth)) state.smonth = current
@@ -825,7 +846,7 @@ async function renderStats() {
     renderStats()
   }))
   bindList(view)
-  reveal(view)
+  if (animate) reveal(view)
 }
 
 // ---------- Recompensas ----------
@@ -842,11 +863,8 @@ async function loadSettings() {
   return (state.data.settings = data || { daily_limit_usd: 5000 })
 }
 
-async function renderRewards() {
+function renderRewards(animate) {
   const view = document.getElementById('view')
-  if (!state.data.snapshots) view.innerHTML = '<p class="muted center">Carregando…</p>'
-  await Promise.all([...['lives', 'withdrawals', 'snapshots'].map(load), loadSettings(), freshRate()])
-  if (state.tab !== 'rewards') return
   updateDue()
 
   const L = ledger(state.data)
@@ -860,10 +878,10 @@ async function renderRewards() {
     const b = ev.target.closest('[data-rtab]')
     if (!b || b.dataset.rtab === state.rtab) return
     state.rtab = b.dataset.rtab
-    renderRewards()
+    renderRewards(true)
   })
   ;({ saldo: bindSaldo, missoes: bindMissoes, limite: bindLimite, regras: () => {} })[state.rtab](view, ctx)
-  reveal(view)
+  if (animate) reveal(view)
 }
 
 const noPrint = () => `
@@ -972,7 +990,7 @@ function bindSaldo(view, { L }) {
   view.querySelectorAll('[data-wmonth]').forEach(b => b.addEventListener('click', () => {
     const r = reportData(state.data.withdrawals)
     state.wmonth = r.months[r.i + Number(b.dataset.wmonth)]
-    renderRewards()
+    renderRewards(false)
   }))
   view.querySelector('[data-share-report]')?.addEventListener('click', async () => {
     const { text, name } = reportData(state.data.withdrawals)
@@ -1006,18 +1024,21 @@ function bindSaldo(view, { L }) {
     if (amount < 9) return toast('O saque mínimo é US$ 9.')
     if (!rate) return toast('Coloque o dólar do Payoneer.')
     const date = form.date.value || today()
+    const btn = form.querySelector('[type=submit]')
+    if (btn.disabled) return
+    btn.disabled = true
     const { error } = await sb.from('withdrawals').insert({ amount_usd: amount, rate_brl: rate, date })
-    if (error) return toast('Erro ao registrar: ' + error.message)
+    if (error) { btn.disabled = false; return toast('Erro ao registrar: ' + error.message) }
     state.wmonth = date.slice(0, 7)   // o relatório mostra o mês do saque que acabou de entrar
     toast('Saque registrado')
-    renderRewards()
+    reload('rewards')
   })
   view.querySelectorAll('[data-withdrawal]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Excluir este saque?')) return
     const { error } = await sb.from('withdrawals').delete().eq('id', b.dataset.withdrawal)
     if (error) return toast('Erro ao excluir: ' + error.message)
     toast('Saque excluído')
-    renderRewards()
+    reload('rewards')
   }))
 }
 
@@ -1082,7 +1103,7 @@ function bindMissoes(view, { L, rate }) {
     const days = L.snap.league_days === d ? d - 1 : d
     const { error } = await sb.from('reward_snapshots').update({ league_days: days }).eq('id', L.snap.id)
     if (error) return toast('Erro ao salvar: ' + error.message)
-    renderRewards()
+    reload('rewards')
   }))
   const sim = view.querySelector('#sim-gems')
   queueMicrotask(() => sim.dispatchEvent(new Event('input')))
@@ -1136,7 +1157,7 @@ function bindLimite(view) {
     const { error } = await sb.from('settings').upsert({ daily_limit_usd: value }, { onConflict: 'user_id' })
     if (error) return toast('Erro ao salvar: ' + error.message)
     toast('Limite salvo')
-    renderRewards()
+    reload('rewards')
   })
 }
 
@@ -1268,7 +1289,7 @@ function showWeekly(result, texts) {
     }
     closeSheet()
     toast('Semana atualizada')
-    if (state.tab === 'rewards') renderRewards()
+    if (state.tab === 'rewards') reload('rewards')
     else updateDue()
   })
 }
@@ -1292,6 +1313,7 @@ const VERSION = '__V__'   // trocado pelo commit na publicação
 
 async function checkUpdate() {
   if (VERSION === '__' + 'V__') return   // rodando localmente, sem versão
+  if (sheet.open) return                 // não recarrega com um cadastro aberto (ex.: voltando da galeria de fotos)
   try {
     const html = await (await fetch(`./?check=${Date.now()}`, { cache: 'no-store' })).text()
     const latest = html.match(/app\.js\?v=(\w+)/)?.[1]
@@ -1305,7 +1327,11 @@ async function checkUpdate() {
 }
 
 checkUpdate()
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate() })
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return
+  checkUpdate()
+  if (signedIn && !sheet.open) reload()   // dados frescos ao voltar para o app
+})
 try {
   if (sessionStorage.getItem('updated')) { sessionStorage.removeItem('updated'); setTimeout(() => toast('App atualizado'), 600) }
 } catch {}

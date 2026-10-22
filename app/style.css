@@ -465,3 +465,8 @@ tr.next td { color: var(--pos); }
 .pick-days button.on { background: var(--accent); }
 .pick-days button svg { width: 15px; height: 15px; stroke-width: 3; color: var(--on-accent); }
 .raw-box pre { white-space: pre-wrap; font-size: 11px; color: var(--muted); max-height: 220px; overflow: auto; margin: 6px 0 0; user-select: text; -webkit-user-select: text; }
+
+/* janela aberta: a tela de trás não rola junto, e a rolagem da janela não "vaza" */
+body:has(dialog[open]) { overflow: hidden; }
+dialog#sheet { overscroll-behavior: contain; }
+#toast { z-index: 30; }
