@@ -122,7 +122,7 @@ async function load(name) {
 function renderLogin() {
   app.innerHTML = `
     <main class="login">
-      <h1>My Stats</h1>
+      <h1>My <span class="gold">Stats</span></h1>
       <p class="muted">Entre com o seu usuário do Supabase.</p>
       <form id="login" class="stack">
         <label class="field"><span>E-mail</span><input name="email" type="email" autocomplete="username" required></label>
@@ -189,24 +189,30 @@ async function renderHome() {
   const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' })
 
   view.innerHTML = `
+    <section class="hero">
+      <span>Ganhos das lives em ${esc(monthName)}</span>
+      <strong>${esc(brl(sum(ml, 'earnings')))}</strong>
+      <div class="row">
+        <div>Recebido<b>${esc(brl(received))}</b></div>
+        <div>A receber<b>${esc(brl(pending))}</b></div>
+      </div>
+    </section>
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
       <div class="grid">
         ${stat('Lives', int(ml.length))}
         ${stat('Horas ao vivo', hours(sum(ml, 'duration_min')))}
-        ${stat('Ganhos', brl(sum(ml, 'earnings')))}
         ${stat('Novos seguidores', int(sum(ml, 'new_followers')))}
         ${stat('Pico médio', int(ml.length ? Math.round(sum(ml, 'peak_viewers') / ml.length) : 0))}
+        ${stat('Público médio', int(ml.length ? Math.round(sum(ml, 'avg_viewers') / ml.length) : 0))}
         ${stat('Diamantes', int(sum(ml, 'diamonds')))}
       </div>
     </section>
     <section>
       <h2>Grana em ${esc(monthName)}</h2>
       <div class="grid">
-        ${stat('Recebido', brl(received), 'pos')}
         ${stat('Gasto', brl(spent), 'neg')}
-        ${stat('A receber', brl(pending), 'warn')}
-        ${stat('Saldo', brl(received - spent))}
+        ${stat('Saldo', brl(received - spent), received - spent >= 0 ? 'pos' : 'neg')}
       </div>
     </section>
     <section>
