@@ -114,3 +114,41 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
   if (out.views && out.unique_viewers && out.views >= out.unique_viewers * 5) out.views = Math.round(out.views / 10)
   return out
 }
+
+// Print de domingo: Content rewards → Upcoming rewards
+const money = s => Number(s.replace(/,/g, '')) || null
+
+export function isWeeklyPrint(text) {
+  return /upcoming rewards/i.test(text) && !/key metrics/i.test(text)
+}
+
+export function parseWeekly(text, now = new Date()) {
+  const out = {}
+  const bal = text.match(/available rewards[^\n]*\n[^\n]*?(?:US\$|USD)\s?([\d.,]+)[^\n]*?(?:US\$|USD)\s?([\d.,]+)/i)
+  if (bal) { out.available_usd = money(bal[1]); out.upcoming_usd = money(bal[2]) }
+
+  // "Oct 19 - Oct 25" e, na linha seguinte, "$255.11 231.9K · 11%"
+  const week = text.match(/\b([A-Za-z]{3})\s+(\d{1,2})\s*[-–]\s*[A-Za-z]{3}\s+\d{1,2}/)
+  if (week && MONTHS[week[1].toLowerCase()]) {
+    const month = MONTHS[week[1].toLowerCase()]
+    const year = now.getFullYear() - (month > now.getMonth() + 2 ? 1 : 0)
+    out.week_start = `${year}-${String(month).padStart(2, '0')}-${week[2].padStart(2, '0')}`
+  }
+  const card = text.match(/^\s*\$\s?([\d.,]+)\D+?(\d+(?:\.\d+)?)\s?([KkMm])/m)
+  if (card) {
+    out.upcoming_usd = money(card[1])
+    out.week_diamonds = Math.round(Number(card[2]) * (/k/i.test(card[3]) ? 1e3 : 1e6))
+  }
+  // A porcentagem sai embaralhada na leitura; ela é o valor dividido pelos diamantes
+  if (out.upcoming_usd != null && out.week_diamonds) {
+    out.weekly_pct = Math.round((out.upcoming_usd / (out.week_diamonds * 0.01)) * 200) / 2
+  }
+
+  const league = text.match(/maintain league\s+([A-D])\s?([1-5lIi|])/i)
+  if (league) out.league = league[1].toUpperCase() + league[2].replace(/[lIi|]/, '1')
+  const days = text.match(/league days kept:\s*(\d)/i)
+  if (days && league) out.league_days = Number(days[1])
+  out.valid_days_done = /valid go live days[\s\S]{0,40}?completed/i.test(text) || null
+  out.fans_done = /active fans[\s\S]{0,40}?completed/i.test(text) || null
+  return out
+}

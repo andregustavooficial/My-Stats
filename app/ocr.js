@@ -36,6 +36,7 @@ async function prepare(file) {
   ctx.drawImage(bitmap, 0, 0, w, h)
   const img = ctx.getImageData(0, 0, w, h)
   const px = img.data
+  const color = new Uint8ClampedArray(px)
   const gray = new Uint8ClampedArray(w * h)
   for (let i = 0; i < w * h; i++) gray[i] = px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114
 
@@ -64,7 +65,46 @@ async function prepare(file) {
   }
   for (let i = 0; i < w * h; i++) { px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = gray[i] }
   ctx.putImageData(img, 0, 0)
-  return canvas
+  return { canvas, color, w }
+}
+
+// Na tela "Upcoming rewards", os dias em que a liga foi mantida são bolinhas laranjas entre
+// "Maintain League A1 for 7 days" e "Day 1 … Day 7". Contamos as manchas laranjas nessa faixa.
+function countOrangeDots(color, w, y0, y1) {
+  const h = y1 - y0
+  if (h <= 0) return 0
+  const on = new Uint8Array(w * h)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = ((y0 + y) * w + x) * 4
+      const r = color[i], g = color[i + 1], b = color[i + 2]
+      on[y * w + x] = r > 200 && g > 100 && g < 200 && b < 110 && r - b > 120 ? 1 : 0
+    }
+  }
+  const seen = new Uint8Array(w * h)
+  let dots = 0
+  for (let start = 0; start < w * h; start++) {
+    if (!on[start] || seen[start]) continue
+    let size = 0, minX = w, maxX = 0
+    const stack = [start]
+    seen[start] = 1
+    while (stack.length) {
+      const i = stack.pop()
+      const x = i % w
+      size++
+      if (x < minX) minX = x; if (x > maxX) maxX = x
+      for (const j of [i - 1, i + 1, i - w, i + w]) {
+        if (j < 0 || j >= w * h || seen[j] || !on[j]) continue
+        if ((j === i - 1 && x === 0) || (j === i + 1 && x === w - 1)) continue
+        seen[j] = 1
+        stack.push(j)
+      }
+    }
+    // a bolinha tem uns 4% da largura do print; o ícone de diamante à esquerda fica de fora pela posição
+    const width = maxX - minX + 1
+    if (width > w * 0.025 && width < w * 0.06 && size > width * width * 0.4 && minX > w * 0.15) dots++
+  }
+  return dots
 }
 
 // Remonta as linhas pela posição das palavras na imagem: o Tesseract às vezes separa a coluna
@@ -122,7 +162,7 @@ function decimalIndex(ctx, { x0, y0, x1, y1 }) {
 }
 
 async function readImage(worker, file) {
-  const canvas = await prepare(file)
+  const { canvas, color, w } = await prepare(file)
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   const { data } = await worker.recognize(canvas, {}, { text: true, blocks: true })
   const words = (data.blocks ?? []).flatMap(b => b.paragraphs.flatMap(p => p.lines.flatMap(l => l.words)))
@@ -132,16 +172,30 @@ async function readImage(worker, file) {
     const i = decimalIndex(ctx, word.bbox)
     if (i > 0 && i < m[1].length) word.text = `${m[1].slice(0, i)}.${m[1].slice(i)}${m[2]}`
   }
-  return rows(words).map(row => row.map(w => w.text).join(' ')).join('\n')
+  const lines = rows(words)
+  const text = lines.map(row => row.map(w => w.text).join(' ')).join('\n')
+  const league = lines.findIndex(row => /maintain league/i.test(row.map(w => w.text).join(' ')))
+  const dayRow = lines.findIndex((row, i) => i > league && /day\s*1/i.test(row.map(w => w.text).join(' ')))
+  if (league < 0 || dayRow < 0) return text
+  // só as palavras de verdade: o ícone de diamante à esquerda vira um "O" alto e alargaria a faixa
+  const only = (row, re) => row.filter(w => re.test(w.text))
+  const top = Math.max(...only(lines[league], /^(maintain|league|for|days|\d|[a-d]\w?)$/i).map(w => w.y + w.h / 2))
+  const bottom = Math.min(...only(lines[dayRow], /^(day|\d)$/i).map(w => w.y - w.h / 2))
+  return `${text}\nLeague days kept: ${countOrangeDots(color, w, Math.round(top), Math.round(bottom))}`
+}
+
+// Devolve o texto de cada print separado, para reconhecer o tipo de cada um
+export async function readEach(files, onStatus) {
+  onStatus?.('Preparando o leitor de prints…')
+  const worker = await getWorker()
+  const texts = []
+  for (let i = 0; i < files.length; i++) {
+    onStatus?.(`Lendo print ${i + 1} de ${files.length}…`)
+    texts.push(await readImage(worker, files[i]))
+  }
+  return texts
 }
 
 export async function readScreenshots(files, onStatus) {
-  onStatus?.('Preparando o leitor de prints…')
-  const worker = await getWorker()
-  let text = ''
-  for (let i = 0; i < files.length; i++) {
-    onStatus?.(`Lendo print ${i + 1} de ${files.length}…`)
-    text += '\n' + await readImage(worker, files[i])
-  }
-  return text
+  return (await readEach(files, onStatus)).join('\n')
 }
