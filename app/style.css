@@ -461,3 +461,7 @@ tr.next td { color: var(--pos); }
 .field input.upper { text-transform: uppercase; }
 .field.calc span::after { content: " · calculada"; color: var(--warn); }
 .importer .raw-box pre { white-space: pre-wrap; font-size: 11px; color: var(--muted); max-height: 220px; overflow: auto; margin: 6px 0 0; user-select: text; -webkit-user-select: text; }
+.pick-days button { width: 30px; height: 30px; border-radius: 50%; border: 0; padding: 0; background: var(--surface-2); display: grid; place-items: center; }
+.pick-days button.on { background: var(--accent); }
+.pick-days button svg { width: 15px; height: 15px; stroke-width: 3; color: var(--on-accent); }
+.raw-box pre { white-space: pre-wrap; font-size: 11px; color: var(--muted); max-height: 220px; overflow: auto; margin: 6px 0 0; user-select: text; -webkit-user-select: text; }

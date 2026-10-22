@@ -1220,15 +1220,30 @@ function showWeekly(result, texts) {
     ['Semana', shortDate(`${data.week_start}T12:00`) + ' a ' + shortDate(new Date(weekEndOf(data.week_start) - 2 * 3600e3))],
     ['Diamantes da semana', data.week_diamonds ? int(data.week_diamonds) : null],
     ['Porcentagem semanal', data.weekly_pct != null ? pct(data.weekly_pct) : null],
-    ['Liga', data.league ? `${data.league}${data.league_days != null ? ` · ${data.league_days} de 7 dias` : ''}` : null],
+    ['Liga', data.league || null],
     ['Dias válidos', data.valid_days_done ? 'concluída' : null],
     ['Fãs ativos', data.fans_done ? 'concluída' : null],
   ].filter(([, v]) => v)
   result.insertAdjacentHTML('beforeend', `
     <div class="card"><b>Upcoming rewards</b>
       ${rows.map(([k, v]) => `<div class="row"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}
+      <div class="row"><span>Dias mantidos na liga</span><b class="muted small">${data.league_days != null ? 'lido do print' : 'toque para marcar'}</b></div>
+      <div class="days pick-days">${[1, 2, 3, 4, 5, 6, 7].map(d => `<button type="button" data-ld="${d}" aria-label="${d} de 7 dias"></button>`).join('')}</div>
       ${data.available_usd == null ? '<p class="muted small">Não achei o saldo disponível nesse print.</p>' : ''}
+      <details class="raw-box"><summary class="muted small">Ver texto lido</summary><pre>${esc(texts.join('\n=====\n'))}</pre></details>
       <button class="btn primary" type="button" data-save-week ${data.available_usd == null ? 'disabled' : ''}>Salvar semana</button></div>`)
+  // dias mantidos: vem da leitura, mas dá para corrigir tocando nas bolinhas
+  const paint = () => result.querySelectorAll('[data-ld]').forEach(b => {
+    const on = Number(b.dataset.ld) <= (data.league_days ?? 0)
+    b.classList.toggle('on', on)
+    b.innerHTML = on ? CHECK : ''
+  })
+  result.querySelectorAll('[data-ld]').forEach(b => b.addEventListener('click', () => {
+    const d = Number(b.dataset.ld)
+    data.league_days = data.league_days === d ? d - 1 : d
+    paint()
+  }))
+  paint()
   result.querySelector('[data-save-week]').addEventListener('click', async ev => {
     ev.target.disabled = true
     const { error } = await sb.from('reward_snapshots').insert(data)
