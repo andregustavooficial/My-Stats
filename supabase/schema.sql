@@ -11,6 +11,16 @@ create table if not exists public.lives (
   new_followers integer,
   diamonds integer,
   earnings numeric(12,2),
+  title text,
+  rewards_usd numeric(12,2),
+  views integer,
+  unique_viewers integer,
+  active_viewers integer,
+  avg_watch_sec integer,
+  gifters integer,
+  comments integer,
+  shares integer,
+  likes integer,
   notes text,
   created_at timestamptz not null default now()
 );
@@ -21,7 +31,7 @@ create table if not exists public.payments (
   date date not null default current_date,
   description text not null,
   amount numeric(12,2) not null,
-  kind text not null default 'entrada' check (kind in ('entrada','saida')),
+  kind text not null default 'entrada' check (kind in ('entrada','saida','saque')),
   status text not null default 'pendente' check (status in ('pendente','pago')),
   notes text,
   created_at timestamptz not null default now()

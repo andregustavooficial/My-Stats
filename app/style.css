@@ -109,6 +109,46 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: upp
 .gems b { font-size: 20px; font-variant-numeric: tabular-nums; }
 .gems span { font-size: 14px; color: rgb(238 246 241 / 0.7); }
 
+/* ---------- Saldo e cotação ---------- */
+
+.hero .usd { font-size: 14px; color: rgb(238 246 241 / 0.7); font-variant-numeric: tabular-nums; margin-top: -10px; }
+.hero .fee { font-size: 13px; color: rgb(238 246 241 / 0.6); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.hero .gems { margin-top: 14px; }
+.rate {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px;
+  margin-top: -14px;
+}
+.rate .flag {
+  width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+  background: rgb(63 214 138 / 0.12); color: var(--pos); font-weight: 700; font-size: 13px;
+}
+.rate .txt { min-width: 0; display: flex; flex-direction: column; }
+.rate .txt span { font-size: 12px; color: var(--muted); }
+.rate .txt strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+.rate .calc { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.rate .calc b { color: var(--text); font-weight: 600; }
+.stat small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.list .val { text-align: right; display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.list .val b { color: var(--accent); }
+.list .val span { font-size: 12px; color: var(--muted); }
+
+/* ---------- Importar print ---------- */
+
+.importer {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 14px; margin: 4px 0 16px; border-radius: var(--radius);
+  background: var(--surface-2); border: 1px dashed rgb(227 182 90 / 0.4);
+}
+.importer p { margin: 0; font-size: 13px; }
+.importer p b { color: var(--text); }
+.importer textarea {
+  width: 100%; font-size: 16px; resize: vertical;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; outline: none;
+}
+.importer span { font-size: 13px; }
+.field.auto input { border-color: rgb(227 182 90 / 0.6); }
+
 /* ---------- Animação ao rolar ---------- */
 
 .reveal { opacity: 0; transform: translateY(14px); transition: opacity 500ms var(--ease-out), transform 600ms var(--ease-out); }

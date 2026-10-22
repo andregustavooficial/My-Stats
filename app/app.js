@@ -1,4 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
+import { parseTikTok } from './tiktok.js'
 
 // A chave anon é pública por design; os dados são protegidos pelo RLS (supabase/schema.sql).
 const SUPABASE_URL = 'https://tolmprwwnishdohhhuad.supabase.co'
@@ -12,6 +13,7 @@ const toastEl = document.getElementById('toast')
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 const brl = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v) || 0)
+const usd = v => 'US$ ' + new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v) || 0)
 const int = v => new Intl.NumberFormat('pt-BR').format(Number(v) || 0)
 const today = () => new Date().toLocaleDateString('sv-SE')
 const fmtDate = d => d ? new Date(d + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
@@ -22,32 +24,46 @@ const hours = min => { const m = Number(min) || 0; return `${Math.floor(m / 60)}
 const LIVE_STATUS = { planejada: 'Planejada', feita: 'Feita', cancelada: 'Cancelada' }
 const VIDEO_STATUS = { ideia: 'Ideia', roteiro: 'Roteiro', gravado: 'Gravado', postado: 'Postado' }
 const PAY_STATUS = { pendente: 'Pendente', pago: 'Pago' }
-const PAY_KIND = { entrada: 'Entrada', saida: 'Saída' }
+const PAY_KIND = { entrada: 'Entrada (R$)', saida: 'Saída (R$)', saque: 'Saque TikTok (US$)' }
+
+// O TikTok paga em dólar: a cotação usada é a do dólar comercial do dia menos R$ 0,14,
+// e cada saque desconta US$ 3 de taxa de serviço.
+const TIKTOK_RATE_DIFF = 0.14
+const WITHDRAW_FEE_USD = 3
 
 const ENTITIES = {
   lives: {
-    table: 'lives', title: 'Lives', single: 'live', order: ['date', false],
+    table: 'lives', title: 'Lives', single: 'live', order: ['date', false], importer: true,
     fields: [
-      { key: 'date', label: 'Data', type: 'date', required: true, default: today },
-      { key: 'duration_min', label: 'Duração (min)', type: 'int' },
-      { key: 'peak_viewers', label: 'Pico de espectadores', type: 'int', half: true },
-      { key: 'avg_viewers', label: 'Média de espectadores', type: 'int', half: true },
-      { key: 'new_followers', label: 'Novos seguidores', type: 'int', half: true },
+      { key: 'title', label: 'Título da live', type: 'text' },
+      { key: 'date', label: 'Data', type: 'date', required: true, default: today, half: true },
+      { key: 'duration_min', label: 'Duração (min)', type: 'int', half: true },
+      { key: 'rewards_usd', label: 'Recompensas (US$)', type: 'money', half: true },
       { key: 'diamonds', label: 'Diamantes', type: 'int', half: true },
-      { key: 'earnings', label: 'Ganhos (R$)', type: 'money' },
+      { key: 'views', label: 'Visualizações', type: 'int', half: true },
+      { key: 'unique_viewers', label: 'Espectadores únicos', type: 'int', half: true },
+      { key: 'active_viewers', label: 'Espectadores ativos', type: 'int', half: true },
+      { key: 'avg_watch_sec', label: 'Tempo médio assistido (s)', type: 'int', half: true },
+      { key: 'peak_viewers', label: 'Pico simultâneo', type: 'int', half: true },
+      { key: 'avg_viewers', label: 'Média simultânea', type: 'int', half: true },
+      { key: 'new_followers', label: 'Novos seguidores', type: 'int', half: true },
+      { key: 'gifters', label: 'Presenteadores', type: 'int', half: true },
+      { key: 'comments', label: 'Comentários', type: 'int', half: true },
+      { key: 'shares', label: 'Compartilhamentos', type: 'int', half: true },
+      { key: 'likes', label: 'Curtidas', type: 'int' },
       { key: 'notes', label: 'Observações', type: 'textarea' },
     ],
     item: r => ({
-      title: fmtDate(r.date),
-      meta: [r.duration_min && hours(r.duration_min), r.peak_viewers != null && `pico ${int(r.peak_viewers)}`, r.new_followers != null && `+${int(r.new_followers)} seg.`].filter(Boolean).join(' · '),
-      value: r.earnings != null ? brl(r.earnings) : '',
+      title: r.title || fmtDate(r.date),
+      meta: [r.title && fmtDate(r.date), r.duration_min && hours(r.duration_min), r.new_followers != null && `+${int(r.new_followers)} seg.`].filter(Boolean).join(' · '),
+      value: r.rewards_usd != null ? usd(r.rewards_usd) : '',
     }),
   },
   payments: {
     table: 'payments', title: 'Pagamentos', single: 'pagamento', order: ['date', false],
     fields: [
       { key: 'description', label: 'Descrição', type: 'text', required: true },
-      { key: 'amount', label: 'Valor (R$)', type: 'money', required: true, half: true },
+      { key: 'amount', label: 'Valor', type: 'money', required: true, half: true },
       { key: 'date', label: 'Data', type: 'date', required: true, default: today, half: true },
       { key: 'kind', label: 'Tipo', type: 'select', options: PAY_KIND, default: () => 'entrada', half: true },
       { key: 'status', label: 'Status', type: 'select', options: PAY_STATUS, default: () => 'pendente', half: true },
@@ -55,8 +71,8 @@ const ENTITIES = {
     ],
     item: r => ({
       title: r.description,
-      meta: `${fmtDate(r.date)} · ${PAY_STATUS[r.status]}`,
-      value: `${r.kind === 'saida' ? '−' : '+'}${brl(r.amount)}`,
+      meta: `${fmtDate(r.date)} · ${r.kind === 'saque' ? 'Saque TikTok · ' : ''}${PAY_STATUS[r.status]}`,
+      value: r.kind === 'saque' ? usd(r.amount) : `${r.kind === 'saida' ? '−' : '+'}${brl(r.amount)}`,
       tone: r.status === 'pendente' ? 'warn' : r.kind === 'saida' ? 'neg' : 'pos',
     }),
   },
@@ -101,7 +117,24 @@ const TABS = [
   { id: 'payments', label: 'Grana', icon: '<rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.5"/>' },
 ]
 
-const state = { tab: 'home', data: {} }
+const state = { tab: 'home', data: {}, rate: readCachedRate() }
+
+function readCachedRate() {
+  try { return JSON.parse(localStorage.getItem('usd-brl')) } catch { return null }
+}
+
+// Dólar comercial do dia (AwesomeAPI, gratuita e sem chave)
+async function loadRate() {
+  try {
+    const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL')
+    const q = (await res.json()).USDBRL
+    state.rate = { commercial: Number(q.bid), at: q.create_date }
+    try { localStorage.setItem('usd-brl', JSON.stringify(state.rate)) } catch {}
+  } catch {
+    // Sem internet: segue com a última cotação salva
+  }
+  return state.rate
+}
 
 function toast(msg) {
   toastEl.textContent = msg
@@ -174,6 +207,7 @@ async function renderHome() {
   const view = document.getElementById('view')
   view.innerHTML = '<p class="muted center">Carregando…</p>'
   const [lives, payments, videos, agenda] = await Promise.all(['lives', 'payments', 'videos', 'agenda'].map(load))
+  await (state.rate && Date.now() - (state.rateFetched || 0) < 30 * 60e3 ? null : loadRate().then(() => { state.rateFetched = Date.now() }))
   if (state.tab !== 'home') return
 
   const month = today().slice(0, 7)
@@ -183,32 +217,50 @@ async function renderHome() {
   const received = sum(mp.filter(p => p.kind === 'entrada'), 'amount')
   const spent = sum(mp.filter(p => p.kind === 'saida'), 'amount')
   const pending = sum(payments.filter(p => p.status === 'pendente' && p.kind === 'entrada'), 'amount')
+  const saques = payments.filter(p => p.kind === 'saque' && p.date?.startsWith(month)).length
   const now = Date.now()
   const next = agenda.filter(a => a.status === 'planejada' && new Date(a.scheduled_at) >= now - 3600e3).slice(0, 3)
   const inProgress = videos.filter(v => v.status !== 'postado')
   const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' })
-
   const monthLabel = monthName[0].toUpperCase() + monthName.slice(1)
+
+  const rewards = sum(ml, 'rewards_usd')
+  const fees = saques * WITHDRAW_FEE_USD
+  const net = Math.max(rewards - fees, 0)
+  const commercial = state.rate?.commercial
+  const rate = commercial ? Math.max(commercial - TIKTOK_RATE_DIFF, 0) : null
+  const perLive = ml.length ? rewards / ml.length : 0
 
   view.innerHTML = `
     <section class="hero">
-      <div class="hero-head"><span>Faturamento do mês</span><i class="pill">${esc(monthLabel)}</i></div>
-      <strong>${esc(brl(sum(ml, 'earnings')))}</strong>
+      <div class="hero-head"><span>Saldo estimado do mês</span><i class="pill">${esc(monthLabel)}</i></div>
+      <strong>${rate ? esc(brl(net * rate)) : esc(usd(net))}</strong>
+      <div class="usd">${rate ? `${esc(usd(net))} × ${esc(brl(rate))}` : 'Sem cotação do dólar no momento'}</div>
+      ${fees ? `<div class="fee">${esc(usd(rewards))} em recompensas − ${esc(usd(fees))} de taxa (${saques} ${saques === 1 ? 'saque' : 'saques'} × US$ 3)</div>` : ''}
       <div class="gems">
         <svg viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M12 21L8 9l4-6 4 6z"/></svg>
         <b>${esc(int(sum(ml, 'diamonds')))}</b><span>diamantes registrados</span>
       </div>
     </section>
+    <div class="rate">
+      <div class="flag">US$</div>
+      <div class="txt"><span>Dólar TikTok hoje</span><strong>${rate ? esc(brl(rate)) : '—'}</strong></div>
+      <div class="calc">${commercial ? `comercial <b>${esc(brl(commercial))}</b><br>− R$ 0,14` : 'sem conexão'}</div>
+    </div>
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
       <div class="grid">
-        ${stat('Lives', int(ml.length))}
+        ${stat('Lives registradas', int(ml.length))}
         ${stat('Horas ao vivo', hours(sum(ml, 'duration_min')))}
         ${stat('Novos seguidores', int(sum(ml, 'new_followers')))}
-        ${stat('Média por live', brl(ml.length ? sum(ml, 'earnings') / ml.length : 0))}
+        ${stat('Média por live', rate ? brl(perLive * rate) : usd(perLive), '', rate ? usd(perLive) : '')}
         ${stat('Pico médio', int(ml.length ? Math.round(sum(ml, 'peak_viewers') / ml.length) : 0))}
-        ${stat('Público médio', int(ml.length ? Math.round(sum(ml, 'avg_viewers') / ml.length) : 0))}
+        ${stat('Curtidas', int(sum(ml, 'likes')))}
       </div>
+    </section>
+    <section>
+      <h2>Últimas lives</h2>
+      ${lives.length ? liveList(lives.slice(0, 5), rate) : empty('Nenhuma live registrada.', 'lives')}
     </section>
     <section>
       <h2>Grana em ${esc(monthName)}</h2>
@@ -216,7 +268,7 @@ async function renderHome() {
         ${stat('Recebido', brl(received), 'pos')}
         ${stat('A receber', brl(pending), 'warn')}
         ${stat('Gasto', brl(spent), 'neg')}
-        ${stat('Saldo', brl(received - spent), received - spent >= 0 ? 'pos' : 'neg')}
+        ${stat('Balanço', brl(received - spent), received - spent >= 0 ? 'pos' : 'neg')}
       </div>
     </section>
     <section>
@@ -233,6 +285,15 @@ async function renderHome() {
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
 }
 
+function liveList(rows, rate) {
+  return `<ul class="list">${rows.map(r => `
+    <li><button data-edit="lives" data-id="${r.id}">
+      <div class="txt"><strong>${esc(r.title || fmtDate(r.date))}</strong>
+        <span>${esc([r.title && fmtDate(r.date), r.duration_min && hours(r.duration_min), r.new_followers != null && `+${int(r.new_followers)} seg.`, r.diamonds != null && `${int(r.diamonds)} diamantes`].filter(Boolean).join(' · '))}</span></div>
+      ${r.rewards_usd != null ? `<div class="val"><b>${esc(rate ? brl(r.rewards_usd * rate) : usd(r.rewards_usd))}</b>${rate ? `<span>${esc(usd(r.rewards_usd))}</span>` : ''}</div>` : ''}
+    </button></li>`).join('')}</ul>`
+}
+
 // ---------- Animação ao rolar ----------
 
 const revealer = new IntersectionObserver(entries => {
@@ -244,7 +305,7 @@ const revealer = new IntersectionObserver(entries => {
 }, { rootMargin: '0px 0px -6% 0px' })
 
 function reveal(root) {
-  root.querySelectorAll('.hero, h2, .stat, .list li, .empty').forEach(el => {
+  root.querySelectorAll('.hero, .rate, h2, .stat, .list li, .empty').forEach(el => {
     const i = [...el.parentElement.children].indexOf(el)
     el.classList.add('reveal')
     el.style.transitionDelay = `${Math.min(i, 5) * 50}ms`
@@ -252,7 +313,7 @@ function reveal(root) {
   })
 }
 
-const stat = (label, value, tone = '') => `<div class="stat ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`
+const stat = (label, value, tone = '', sub = '') => `<div class="stat ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`
 const empty = (msg, name) => `<div class="empty"><p class="muted">${esc(msg)}</p><button class="btn" data-new="${name}">Adicionar</button></div>`
 
 function list(name, rows) {
@@ -333,10 +394,18 @@ function openForm(name, row) {
         <strong>${editing ? 'Editar' : 'Nova'} ${esc(e.single)}</strong>
         <button type="submit" class="link strong">Salvar</button>
       </div>
+      ${e.importer ? `
+      <div class="importer">
+        <button type="button" class="btn primary" data-paste>Colar dados do print</button>
+        <p class="muted">No app Fotos, abra o print, toque no ícone de texto e em <b>Copiar tudo</b>. Depois toque no botão acima. Repita para as 3 abas.</p>
+        <textarea id="import-text" rows="4" placeholder="Ou cole o texto aqui…" aria-label="Texto do print"></textarea>
+        <span id="import-status" class="muted" role="status"></span>
+      </div>` : ''}
       <div class="fields">${e.fields.map(f => input(f, editing ? row[f.key] : f.default?.() ?? '')).join('')}</div>
       ${editing ? '<button type="button" class="btn danger" data-delete>Excluir</button>' : ''}
     </form>`
   const form = sheet.querySelector('form')
+  if (e.importer) bindImporter(form, e)
   sheet.querySelector('[data-close]').addEventListener('click', () => closeSheet())
   sheet.querySelector('[data-delete]')?.addEventListener('click', async () => {
     if (!confirm('Excluir este registro?')) return
@@ -357,6 +426,33 @@ function openForm(name, row) {
     closeSheet(); toast('Salvo'); go(state.tab)
   })
   sheet.showModal()
+}
+
+function bindImporter(form, e) {
+  const box = form.querySelector('#import-text')
+  const status = form.querySelector('#import-status')
+  const filled = new Set()
+  const apply = text => {
+    const data = parseTikTok(text)
+    let n = 0
+    for (const f of e.fields) {
+      if (data[f.key] == null) continue
+      const el = form.elements[f.key]
+      el.value = f.type === 'money' ? String(data[f.key]).replace('.', ',') : data[f.key]
+      el.closest('.field').classList.add('auto')
+      filled.add(f.key); n++
+    }
+    status.textContent = n ? `${filled.size} campos preenchidos. Confira antes de salvar.` : 'Não encontrei dados da live nesse texto.'
+  }
+  form.querySelector('[data-paste]').addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text) return apply(text)
+    } catch {}
+    box.focus()
+    status.textContent = 'Cole o texto na caixa abaixo.'
+  })
+  box.addEventListener('input', () => { if (box.value.trim()) { apply(box.value); box.value = '' } })
 }
 
 function closeSheet() {
