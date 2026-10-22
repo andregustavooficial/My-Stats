@@ -119,7 +119,7 @@ const TABS = [
   { id: 'rewards', label: 'Recompensas', icon: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/>' },
 ]
 
-const state = { tab: 'home', rtab: 'saldo', data: {}, rate: readCachedRate() }
+const state = { tab: 'home', rtab: 'saldo', lmonth: null, lsort: 'data', data: {}, rate: readCachedRate() }
 
 function readCachedRate() {
   try { return JSON.parse(localStorage.getItem('usd-brl')) } catch { return null }
@@ -231,7 +231,7 @@ function go(tab) {
   document.getElementById('prints').hidden = !['lives', 'rewards'].includes(tab)
   if (tab !== 'rewards') document.getElementById('add').setAttribute('aria-label', tab === 'home' ? 'Adicionar live' : `Adicionar ${ENTITIES[tab].single}`)
   window.scrollTo(0, 0)
-  return tab === 'home' ? renderHome() : tab === 'rewards' ? renderRewards() : renderList(tab)
+  return tab === 'home' ? renderHome() : tab === 'rewards' ? renderRewards() : tab === 'lives' ? renderLives() : renderList(tab)
 }
 
 // ---------- Início ----------
@@ -519,6 +519,114 @@ function closeSheet() {
 }
 sheet.addEventListener('click', ev => { if (ev.target === sheet) closeSheet() })
 sheet.addEventListener('cancel', ev => { ev.preventDefault(); closeSheet() })
+
+// ---------- Lives: mês a mês ----------
+
+const shortDay = d => new Date(`${d}T12:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+
+function monthStats(lives, month) {
+  const ls = lives.filter(l => l.date?.startsWith(month))
+  const total = k => ls.reduce((s, l) => s + (Number(l[k]) || 0), 0)
+  const days = new Set(ls.map(l => l.date)).size
+  const gems = total('diamonds')
+  const min = total('duration_min')
+  return { ls, days, gems, min, usd: total('rewards_usd'),
+    perDay: days ? gems / days : 0, perHour: min ? gems / (min / 60) : 0, perLive: ls.length ? gems / ls.length : 0 }
+}
+
+const perHour = l => (l.duration_min ? (Number(l.diamonds) || 0) / (l.duration_min / 60) : 0)
+
+async function renderLives() {
+  const view = document.getElementById('view')
+  if (!state.data.lives) view.innerHTML = '<p class="muted center">Carregando…</p>'
+  const lives = await load('lives')
+  if (state.tab !== 'lives') return
+  const months = [...new Set([today().slice(0, 7), ...lives.map(l => l.date?.slice(0, 7)).filter(Boolean)])].sort()
+  if (!months.includes(state.lmonth)) state.lmonth = months.at(-1)
+  const i = months.indexOf(state.lmonth)
+  const s = monthStats(lives, state.lmonth)
+  const prev = i > 0 ? monthStats(lives, months[i - 1]) : null
+  const name = new Date(`${state.lmonth}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+
+  const delta = (cur, before) => {
+    if (!before) return ''
+    const p = (cur - before) / before * 100
+    return `<span class="${p >= 0 ? 'pos' : 'neg'}">${p >= 0 ? '↑' : '↓'} ${int(Math.round(Math.abs(p)))}% vs. mês anterior</span>`
+  }
+  const card = (label, value, cur, before, tone = '') =>
+    `<div class="stat ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${delta(cur, before)}</small></div>`
+
+  let body
+  if (!s.ls.length) {
+    body = empty('Nenhuma live neste mês.', 'lives')
+  } else {
+    const best = [...s.ls].sort((a, b) => (b.diamonds || 0) - (a.diamonds || 0))[0]
+    const max = Number(best.diamonds) || 1
+    const sorted = state.lsort === 'diamantes' ? [...s.ls].sort((a, b) => (b.diamonds || 0) - (a.diamonds || 0))
+      : state.lsort === 'hora' ? [...s.ls].sort((a, b) => perHour(b) - perHour(a))
+      : s.ls
+    const [y, m] = state.lmonth.split('-').map(Number)
+    const nDays = new Date(y, m, 0).getDate()
+    const byDay = Array.from({ length: nDays }, (_, d) => s.ls.filter(l => +l.date.slice(8) === d + 1).reduce((a, l) => a + (Number(l.diamonds) || 0), 0))
+    const top = Math.max(...byDay, 1)
+    const W = 300, H = 110, bw = W / nDays
+    const bars = byDay.map((g, d) => g ? `<rect x="${(d * bw + bw * 0.15).toFixed(1)}" y="${(H - g / top * H).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${(g / top * H).toFixed(1)}" rx="2" fill="${g === top ? 'var(--accent-2)' : 'var(--accent)'}" opacity="${g === top ? 1 : 0.65}"/>` : '').join('')
+    const avgY = (H - s.perDay / top * H).toFixed(1)
+    body = `
+      <section>
+        <h2>Comparativo do mês</h2>
+        <div class="grid">
+          ${card('Diamantes no mês', int(s.gems), s.gems, prev?.gems, 'gemv')}
+          ${card('Recompensas', usd(s.usd), s.usd, prev?.usd)}
+          ${card('Média por dia de live', int(Math.round(s.perDay)), s.perDay, prev?.perDay)}
+          ${card('Média por hora', int(Math.round(s.perHour)), s.perHour, prev?.perHour)}
+          ${card('Média por live', int(Math.round(s.perLive)), s.perLive, prev?.perLive)}
+          ${card('Horas ao vivo', hours(s.min), s.min, prev?.min)}
+        </div>
+      </section>
+      <section class="best">
+        <div class="hero-head"><span>Melhor live do mês</span><i class="pill">${esc(shortDay(best.date))}</i></div>
+        <b class="best-title">${esc(best.title || fmtDate(best.date))}</b>
+        <div class="best-nums"><span><b>${esc(int(best.diamonds))}</b> diamantes</span>${best.duration_min ? `<span>${esc(hours(best.duration_min))}</span><span><b>${esc(int(Math.round(perHour(best))))}</b> por hora</span>` : ''}${best.new_followers != null ? `<span>+${esc(int(best.new_followers))} seguidores</span>` : ''}</div>
+      </section>
+      <section class="card chart">
+        <h2>Diamantes por dia</h2>
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Diamantes por dia do mês">
+          <line x1="0" x2="${W}" y1="${H}" y2="${H}" stroke="var(--line)"/>${bars}
+          <line x1="0" x2="${W}" y1="${avgY}" y2="${avgY}" stroke="#8fe3ff" stroke-dasharray="4 4" stroke-width="1"/>
+        </svg>
+        <div class="legend"><span>dia 1</span><span class="gem-txt">média por dia de live: ${esc(int(Math.round(s.perDay)))}</span><span>dia ${nDays}</span></div>
+      </section>
+      <section>
+        <div class="sort-row"><h2>Lives</h2>
+          <div class="chips" role="group" aria-label="Ordenar">${[['data', 'Data'], ['diamantes', 'Diamantes'], ['hora', 'Por hora']].map(([k, l]) =>
+            `<button type="button" data-lsort="${k}" aria-pressed="${state.lsort === k}">${l}</button>`).join('')}</div>
+        </div>
+        <ul class="list live-rank">${sorted.map(l => `
+          <li><button data-edit="lives" data-id="${l.id}">
+            <div class="txt"><strong>${esc(l.title || fmtDate(l.date))}</strong>
+              <span>${l === best ? '<b class="gold">Melhor do mês</b> · ' : ''}${esc([shortDay(l.date), l.duration_min && hours(l.duration_min), l.duration_min && l.diamonds != null && `${int(Math.round(perHour(l)))}/h`].filter(Boolean).join(' · '))}</span></div>
+            <div class="val"><b class="gem-txt">${l.diamonds != null ? esc(int(l.diamonds)) : '—'}</b>${l.rewards_usd != null ? `<span>${esc(usd(l.rewards_usd))}</span>` : ''}</div>
+            <i class="rank-bar"><i style="transform:scaleX(${(Number(l.diamonds) || 0) / max})"></i></i>
+          </button></li>`).join('')}</ul>
+      </section>`
+  }
+
+  view.innerHTML = `
+    <div class="month-pick">
+      <button type="button" data-month="-1" aria-label="Mês anterior" ${i === 0 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div><strong>${esc(name[0].toUpperCase() + name.slice(1))}</strong><span>${s.ls.length} ${s.ls.length === 1 ? 'live' : 'lives'} · ${s.days} ${s.days === 1 ? 'dia' : 'dias'} de live</span></div>
+      <button type="button" data-month="1" aria-label="Próximo mês" ${i === months.length - 1 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    ${body}`
+  view.querySelectorAll('[data-month]').forEach(b => b.addEventListener('click', () => {
+    state.lmonth = months[i + Number(b.dataset.month)]
+    renderLives()
+  }))
+  view.querySelectorAll('[data-lsort]').forEach(b => b.addEventListener('click', () => { state.lsort = b.dataset.lsort; renderLives() }))
+  bindList(view)
+  reveal(view)
+}
 
 // ---------- Recompensas ----------
 
