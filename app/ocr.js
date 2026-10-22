@@ -179,13 +179,13 @@ async function readImage(worker, file) {
   }
   const lines = rows(words)
   const text = lines.map(row => row.map(w => w.text).join(' ')).join('\n')
-  const league = lines.findIndex(row => /maintain league/i.test(row.map(w => w.text).join(' ')))
-  const dayRow = lines.findIndex((row, i) => i > league && /day\s*1/i.test(row.map(w => w.text).join(' ')))
+  const league = lines.findIndex(row => /ma[il1]nta[il1]n|league\s*\S{1,3}\s*for|for\s*7\s*d/i.test(row.map(w => w.text).join(' ')))
+  const dayRow = lines.findIndex((row, i) => i > league && /d[a@]y\s*[1lI|7]/i.test(row.map(w => w.text).join(' ')))
   if (league < 0 || dayRow < 0) return text
   // só as palavras de verdade: o ícone de diamante à esquerda vira um "O" alto e alargaria a faixa
   const only = (row, re) => row.filter(w => re.test(w.text))
   const top = Math.max(...only(lines[league], /^(maintain|league|for|days|\d|[a-d]\w?)$/i).map(w => w.y + w.h / 2))
-  const bottom = Math.min(...only(lines[dayRow], /^(day|\d)$/i).map(w => w.y - w.h / 2))
+  const bottom = Math.min(...only(lines[dayRow], /^(d[a@]y|[\dlI|])$/i).map(w => w.y - w.h / 2))
   return `${text}\nLeague days kept: ${countOrangeDots(color, w, Math.round(top), Math.round(bottom))}`
 }
 

@@ -196,7 +196,8 @@ export function parseWeekly(text, now = new Date()) {
   }
   const card = text.match(/^\s*\$\s?([\d.,]+)\D+?(\d+(?:\.\d+)?)\s?([KkMm])/m)
   if (card) {
-    out.upcoming_usd = money(card[1])
+    // o valor da linha "Available/Upcoming rewards" é mais confiável (o do cartão perde o ponto: "$2551")
+    out.upcoming_usd ??= money(card[1])
     out.week_diamonds = Math.round(Number(card[2]) * (/k/i.test(card[3]) ? 1e3 : 1e6))
   }
   // A porcentagem sai embaralhada na leitura; ela é o valor dividido pelos diamantes
@@ -209,10 +210,10 @@ export function parseWeekly(text, now = new Date()) {
     else delete out.week_diamonds
   }
 
-  const league = text.match(/maintain league\s+([A-D])\s?([1-5lIi|])/i)
+  const league = text.match(/\b([A-D])\s?([1-5lIi|])\s*for\s*7\s*d/i) || text.match(/l[e3]ag[uv]e\s*([A-D])\s?([1-5lIi|])\s*for/i) || text.match(/maintain league\s+([A-D])\s?([1-5lIi|])/i)
   if (league) out.league = league[1].toUpperCase() + league[2].replace(/[lIi|]/, '1')
   const days = text.match(/league days kept:\s*(\d)/i)
-  if (days && league) out.league_days = Number(days[1])
+  if (days && Number(days[1]) <= 7) out.league_days = Number(days[1])
   out.valid_days_done = /valid go live days[\s\S]{0,40}?completed/i.test(text) || null
   out.fans_done = /active fans[\s\S]{0,40}?completed/i.test(text) || null
   return out
