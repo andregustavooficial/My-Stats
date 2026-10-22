@@ -82,10 +82,56 @@ function rows(words) {
   return out.map(r => r.words.sort((a, b) => a.x - b.x))
 }
 
+// O Tesseract engole o ponto em números como "2.1K" (sai "21K"). O ponto é uma mancha pequena,
+// isolada e rente à base do número: procuramos essa mancha na imagem e devolvemos o ponto
+// depois de quantos dígitos houver à esquerda dela.
+const NO_POINT = /^(\d{2,})([KkMm])$/
+
+function decimalIndex(ctx, { x0, y0, x1, y1 }) {
+  const w = x1 - x0
+  const h = y1 - y0
+  if (w < 4 || h < 4) return -1
+  const px = ctx.getImageData(x0, y0, w, h).data
+  const dark = new Uint8Array(w * h)
+  for (let i = 0; i < w * h; i++) dark[i] = px[i * 4] < 128 ? 1 : 0
+  const seen = new Uint8Array(w * h)
+  const parts = []
+  for (let start = 0; start < w * h; start++) {
+    if (!dark[start] || seen[start]) continue
+    let minX = w, maxX = 0, minY = h, maxY = 0
+    const stack = [start]
+    seen[start] = 1
+    while (stack.length) {
+      const i = stack.pop()
+      const x = i % w, y = (i / w) | 0
+      if (x < minX) minX = x; if (x > maxX) maxX = x
+      if (y < minY) minY = y; if (y > maxY) maxY = y
+      for (const j of [i - 1, i + 1, i - w, i + w]) {
+        if (j < 0 || j >= w * h || seen[j] || !dark[j]) continue
+        if ((j === i - 1 && x === 0) || (j === i + 1 && x === w - 1)) continue
+        seen[j] = 1
+        stack.push(j)
+      }
+    }
+    parts.push({ cx: (minX + maxX) / 2, pw: maxX - minX + 1, ph: maxY - minY + 1, bottom: maxY })
+  }
+  const tallest = Math.max(...parts.map(p => p.ph))
+  const dot = parts.find(p => p.ph < tallest * 0.3 && p.pw < tallest * 0.35 && p.bottom > h - tallest * 0.35 && p.ph > 1)
+  if (!dot) return -1
+  return parts.filter(p => p.ph > tallest * 0.6 && p.cx < dot.cx).length
+}
+
 async function readImage(worker, file) {
   const canvas = await prepare(file)
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
   const { data } = await worker.recognize(canvas, {}, { text: true, blocks: true })
   const words = (data.blocks ?? []).flatMap(b => b.paragraphs.flatMap(p => p.lines.flatMap(l => l.words)))
+  for (const word of words) {
+    const m = word.text.match(NO_POINT)
+    if (!m) continue
+    const i = decimalIndex(ctx, word.bbox)
+    if (i > 0 && i < m[1].length) word.text = `${m[1].slice(0, i)}.${m[1].slice(i)}${m[2]}`
+  }
   return rows(words).map(row => row.map(w => w.text).join(' ')).join('\n')
 }
 
