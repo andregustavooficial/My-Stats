@@ -460,3 +460,4 @@ tr.next td { color: var(--pos); }
 .report td { text-align: right; }
 .field input.upper { text-transform: uppercase; }
 .field.calc span::after { content: " · calculada"; color: var(--warn); }
+.importer .raw-box pre { white-space: pre-wrap; font-size: 11px; color: var(--muted); max-height: 220px; overflow: auto; margin: 6px 0 0; user-select: text; -webkit-user-select: text; }

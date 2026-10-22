@@ -498,6 +498,7 @@ function openForm(name, row, prefill) {
           <textarea id="import-text" rows="3" placeholder="Ou cole o texto aqui…" aria-label="Texto do print"></textarea>
         </details>
         <span id="import-status" class="muted" role="status"></span>
+        <details class="raw-box" hidden><summary>Ver texto lido</summary><pre id="import-raw"></pre></details>
       </div>` : ''}
       <div class="fields">${e.fields.map(f => input(f, editing ? row[f.key] : f.default?.() ?? '')).join('')}</div>
       ${editing ? '<button type="button" class="btn danger" data-delete>Excluir</button>' : ''}
@@ -571,7 +572,10 @@ function bindImporter(form, e) {
     if (!files.files.length) return
     pick.classList.add('busy')
     try {
-      apply((await readEach([...files.files], msg => { status.textContent = msg })).join('\n'))
+      const text = (await readEach([...files.files], msg => { status.textContent = msg })).join('\n')
+      form.querySelector('#import-raw').textContent = text
+      form.querySelector('.raw-box').hidden = false
+      apply(text)
     } catch (err) {
       status.textContent = err.message || 'Não consegui ler os prints. Tente colar o texto.'
     } finally {
