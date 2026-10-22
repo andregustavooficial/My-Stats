@@ -114,12 +114,10 @@ ENTITIES.snapshots = { table: 'reward_snapshots', order: ['taken_at', false] }
 const TABS = [
   { id: 'home', label: 'Início', icon: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>' },
   { id: 'lives', label: 'Lives', icon: '<circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"/>' },
-  { id: 'agenda', label: 'Agenda', icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
-  { id: 'videos', label: 'Vídeos', icon: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>' },
   { id: 'rewards', label: 'Recompensas', icon: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/>' },
 ]
 
-const state = { tab: 'home', rtab: 'saldo', lmonth: null, lsort: 'data', data: {}, rate: readCachedRate() }
+const state = { tab: 'home', rtab: 'saldo', lmonth: null, lsort: 'data', wmonth: null, data: {}, rate: readCachedRate() }
 
 function readCachedRate() {
   try { return JSON.parse(localStorage.getItem('usd-brl')) } catch { return null }
@@ -239,7 +237,7 @@ function go(tab) {
 async function renderHome() {
   const view = document.getElementById('view')
   view.innerHTML = '<p class="muted center">Carregando…</p>'
-  const [lives, videos, agenda, withdrawals] = await Promise.all(['lives', 'videos', 'agenda', 'withdrawals'].map(load))
+  const [lives, withdrawals] = await Promise.all(['lives', 'withdrawals'].map(load))
   await freshRate()
   if (state.tab !== 'home') return
 
@@ -247,9 +245,6 @@ async function renderHome() {
   const ml = lives.filter(l => l.date?.startsWith(month))
   const sum = (arr, k) => arr.reduce((s, r) => s + (Number(r[k]) || 0), 0)
   const saques = withdrawals.filter(w => w.date?.startsWith(month)).length
-  const now = Date.now()
-  const next = agenda.filter(a => a.status === 'planejada' && new Date(a.scheduled_at) >= now - 3600e3).slice(0, 3)
-  const inProgress = videos.filter(v => v.status !== 'postado')
   const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' })
   const monthLabel = monthName[0].toUpperCase() + monthName.slice(1)
 
@@ -283,6 +278,8 @@ async function renderHome() {
       <div class="txt"><span>${payout?.source === 'saque' ? 'Dólar do último saque' : 'Dólar estimado para saque'}</span><strong>${rate ? esc(brlRate(rate)) : '—'}</strong></div>
       <div class="calc">${payout?.source === 'saque' ? `comercial hoje<br><b>${commercial ? esc(brl(commercial)) : '—'}</b>` : commercial ? `comercial <b>${esc(brl(commercial))}</b><br>− R$ 0,18` : 'sem conexão'}${state.rate?.source === 'Banco Central' ? '<br>(Banco Central)' : ''}</div>
     </div>
+    ${streakCard(lives)}
+    ${projectionCard(ml, rate, monthName)}
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
       <div class="grid">
@@ -298,18 +295,61 @@ async function renderHome() {
       <h2>Últimas lives</h2>
       ${lives.length ? liveList(lives.slice(0, 5), rate) : empty('Nenhuma live registrada.', 'lives')}
     </section>
-    <section>
-      <h2>Próximas lives</h2>
-      ${next.length ? list('agenda', next) : empty('Nenhuma live planejada.', 'agenda')}
-    </section>
-    <section>
-      <h2>Vídeos em andamento</h2>
-      ${inProgress.length ? list('videos', inProgress.slice(0, 5)) : empty('Nenhum vídeo em andamento.', 'videos')}
-    </section>
     <button id="logout" class="btn ghost">Sair</button>`
   bindList(view)
   reveal(view)
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
+}
+
+// Dias seguidos com live (hoje ainda pode ter live, então a conta começa ontem se hoje não teve)
+function streakCard(lives) {
+  const days = new Set(lives.map(l => l.date))
+  if (!days.size) return ''
+  const ymd = d => d.toLocaleDateString('sv-SE')
+  const d = new Date()
+  const liveToday = days.has(ymd(d))
+  if (!liveToday) d.setDate(d.getDate() - 1)
+  let streak = 0
+  while (days.has(ymd(d))) { streak++; d.setDate(d.getDate() - 1) }
+  let best = 0, run = 0
+  const all = [...days].sort()
+  for (let i = 0; i < all.length; i++) {
+    const gap = i ? (new Date(`${all[i]}T12:00`) - new Date(`${all[i - 1]}T12:00`)) / 864e5 : 1
+    run = gap === 1 ? run + 1 : 1
+    best = Math.max(best, run)
+  }
+  const dots = Array.from({ length: 14 }, (_, i) => {
+    const x = new Date(); x.setDate(x.getDate() - 13 + i)
+    return `<i class="${days.has(ymd(x)) ? 'on' : ''} ${i === 13 ? 'today' : ''}"></i>`
+  }).join('')
+  return `
+    <section class="streak">
+      <span class="n">${streak}</span>
+      <b>${streak === 1 ? 'dia seguido com live' : 'dias seguidos com live'}</b>
+      <span class="muted small">Sua maior sequência: ${best} ${best === 1 ? 'dia' : 'dias'}${liveToday ? '' : ' · hoje ainda não teve live'}</span>
+      <div class="dots">${dots}</div>
+    </section>`
+}
+
+// No ritmo do mês até hoje, quanto o mês fecha
+function projectionCard(ml, rate, monthName) {
+  const gems = ml.reduce((s, l) => s + (Number(l.diamonds) || 0), 0)
+  if (!gems) return ''
+  const now = new Date()
+  const nDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const projected = gems / now.getDate() * nDays
+  const projUsd = projected * 0.01 * 0.51
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString('pt-BR', { month: 'long' })
+  return `
+    <section class="proj">
+      <span class="lead">No ritmo atual, ${esc(monthName)} fecha com</span>
+      <b class="big">${esc(int(Math.round(projected)))} diamantes</b>
+      <div class="pbar"><i style="transform:scaleX(${(gems / projected).toFixed(3)})"></i></div>
+      <div class="row"><span>Até hoje (dia ${now.getDate()} de ${nDays})</span><b>${esc(int(gems))}</b></div>
+      <div class="row"><span>Em dólares (51%)</span><b>${esc(usd(projUsd))}</b></div>
+      ${rate ? `<div class="row"><span>Em reais</span><b>${esc(brl(projUsd * rate))}</b></div>` : ''}
+      <div class="row"><span>Limite de saque em ${esc(nextMonth)}</span><b class="gold">${esc(usd0(limitFor(projUsd).tier[1]))} por dia</b></div>
+    </section>`
 }
 
 const brlRate = r => 'R$ ' + new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(r)
@@ -534,6 +574,92 @@ function monthStats(lives, month) {
     perDay: days ? gems / days : 0, perHour: min ? gems / (min / 60) : 0, perLive: ls.length ? gems / ls.length : 0 }
 }
 
+function funnelCard(s, prev) {
+  const f = st => {
+    const t = k => st.ls.reduce((a, l) => a + (Number(l[k]) || 0), 0)
+    const views = t('views'), unique = t('unique_viewers'), gifters = t('gifters'), followers = t('new_followers'), gems = t('diamonds')
+    return { views, unique, gifters, followers,
+      fol: unique ? followers / unique * 1000 : null, gif: unique ? gifters / unique * 100 : null, tick: gifters ? gems / gifters : null }
+  }
+  const F = f(s)
+  if (!F.views || !F.unique) return ''
+  const P = prev ? f(prev) : null
+  const change = (cur, before) => (cur != null && before ? `<small class="${cur >= before ? 'pos' : 'neg'}">${cur >= before ? '↑' : '↓'} ${int(Math.round(Math.abs((cur - before) / before * 100)))}%</small>` : '')
+  const dec1 = v => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(v)
+  return `
+    <section class="card">
+      <h2>Funil do mês</h2>
+      <div class="funnel">${[['Visualizações', F.views], ['Espectadores únicos', F.unique], ['Presenteadores', F.gifters], ['Novos seguidores', F.followers]].map(([n, v]) =>
+        `<div class="step"><span>${n}</span><b>${esc(int(v))}</b><i style="transform:scaleX(${Math.max(v / F.views, 0.015).toFixed(3)})"></i></div>`).join('')}</div>
+      <div class="kpis">
+        <div><span>Seguidores a cada 1.000 espectadores</span><b>${F.fol != null ? dec1(F.fol) : '—'}</b>${change(F.fol, P?.fol)}</div>
+        <div><span>Espectadores que presenteiam</span><b>${F.gif != null ? dec1(F.gif) + '%' : '—'}</b>${change(F.gif, P?.gif)}</div>
+        <div><span>Diamantes por presenteador</span><b>${F.tick != null ? esc(int(Math.round(F.tick))) : '—'}</b>${change(F.tick, P?.tick)}</div>
+      </div>
+      <p class="muted small">Somando todas as lives do mês. A variação é contra o mês anterior.</p>
+    </section>`
+}
+
+function retentionCard(lives, months) {
+  const avg = (ls, k) => { const v = ls.map(l => Number(l[k])).filter(n => n > 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null }
+  const rows = months.map(m => { const ls = lives.filter(l => l.date?.startsWith(m)); return { m, watch: avg(ls, 'avg_watch_sec'), peak: avg(ls, 'peak_viewers') } })
+    .filter(r => r.watch != null)
+  if (!rows.length) return ''
+  const cur = rows.at(-1), before = rows.at(-2)
+  const label = m => new Date(`${m}-15T12:00`).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  let chart = ''
+  if (rows.length > 1) {
+    const lo = Math.min(...rows.map(r => r.watch)) - 3, hi = Math.max(...rows.map(r => r.watch)) + 3
+    const pts = rows.map((r, i) => [i / (rows.length - 1) * 300, 76 - (r.watch - lo) / (hi - lo) * 70].map(n => n.toFixed(1)))
+    const line = pts.map(p => p.join(' ')).join(' L')
+    chart = `
+      <svg class="spark" viewBox="0 0 300 80" preserveAspectRatio="none" role="img" aria-label="Tempo médio assistido por mês">
+        <path d="M${line} L300 80 L0 80 Z" fill="rgb(227 182 90 / 0.12)" stroke="none"/>
+        <path d="M${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+        ${pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i === pts.length - 1 ? 4 : 3}" fill="${i === pts.length - 1 ? 'var(--accent-2)' : 'var(--accent)'}"/>`).join('')}
+      </svg>
+      <div class="legend">${rows.map(r => `<span>${esc(label(r.m))} · ${Math.round(r.watch)} s</span>`).join('')}</div>`
+  }
+  const d = before ? Math.round(cur.watch - before.watch) : null
+  return `
+    <section class="card">
+      <h2>Retenção</h2>
+      <div class="row"><span>Tempo médio assistido</span><b>${Math.round(cur.watch)} s${d != null ? ` <small class="${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '+' : '−'}${Math.abs(d)} s</small>` : ''}</b></div>
+      ${chart}
+      ${cur.peak != null ? `<div class="row"><span>Pico médio por live</span><b>${esc(int(Math.round(cur.peak)))}${before?.peak != null ? ` <small class="muted">(${esc(label(before.m))}: ${esc(int(Math.round(before.peak)))})</small>` : ''}</b></div>` : ''}
+    </section>`
+}
+
+function recordsCard(lives) {
+  const withField = k => lives.filter(l => Number(l[k]) > 0)
+  const top = k => withField(k).reduce((a, l) => (!a || Number(l[k]) > Number(a[k]) ? l : a), null)
+  const byMonth = {}
+  for (const l of lives) if (l.date) byMonth[l.date.slice(0, 7)] = (byMonth[l.date.slice(0, 7)] || 0) + (Number(l.diamonds) || 0)
+  const bestMonth = Object.entries(byMonth).sort((a, b) => b[1] - a[1])[0]
+  const days = [...new Set(lives.map(l => l.date).filter(Boolean))].sort()
+  let best = 0, run = 0, bestEnd = null
+  days.forEach((d, i) => {
+    run = i && (new Date(`${d}T12:00`) - new Date(`${days[i - 1]}T12:00`)) / 864e5 === 1 ? run + 1 : 1
+    if (run > best) { best = run; bestEnd = d }
+  })
+  const fresh = d => d && (Date.now() - new Date(`${d}T12:00`)) / 864e5 <= 7
+  const dmy = d => new Date(`${d}T12:00`).toLocaleDateString('pt-BR')
+  const items = [
+    top('diamonds') && ['Maior live em diamantes', int(top('diamonds').diamonds), dmy(top('diamonds').date), top('diamonds').date],
+    top('new_followers') && ['Mais seguidores numa live', '+' + int(top('new_followers').new_followers), dmy(top('new_followers').date), top('new_followers').date],
+    top('peak_viewers') && ['Maior pico de espectadores', int(top('peak_viewers').peak_viewers), dmy(top('peak_viewers').date), top('peak_viewers').date],
+    bestMonth && bestMonth[1] && ['Melhor mês', `${int(bestMonth[1])} diamantes`, new Date(`${bestMonth[0]}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }), null],
+    best > 1 && ['Maior sequência de dias com live', `${best} dias`, `até ${dmy(bestEnd)}`, bestEnd],
+  ].filter(Boolean)
+  if (!items.length) return ''
+  return `
+    <section>
+      <h2>Recordes</h2>
+      <ul class="records">${items.map(([label, value, when, date]) => `
+        <li class="${fresh(date) ? 'fresh' : ''}"><span>${esc(label)}</span><b>${esc(value)}</b><small>${esc(when)}</small></li>`).join('')}</ul>
+    </section>`
+}
+
 const perHour = l => (l.duration_min ? (Number(l.diamonds) || 0) / (l.duration_min / 60) : 0)
 
 async function renderLives() {
@@ -584,6 +710,9 @@ async function renderLives() {
           ${card('Horas ao vivo', hours(s.min), s.min, prev?.min)}
         </div>
       </section>
+      ${funnelCard(s, prev)}
+      ${retentionCard(lives, months.slice(Math.max(0, i - 5), i + 1))}
+      ${recordsCard(lives)}
       <section class="best">
         <div class="hero-head"><span>Melhor live do mês</span><i class="pill">${esc(shortDay(best.date))}</i></div>
         <b class="best-title">${esc(best.title || fmtDate(best.date))}</b>
@@ -714,6 +843,8 @@ function saldoPanel({ L, payout, rate }) {
         </button></li>`).join('')}</ul>` : '<p class="muted small">Nenhum saque registrado.</p>'}
     </section>
 
+    ${reportCard(wds)}
+
     ${entries.length ? `
     <section>
       <h2>Últimas entradas</h2>
@@ -722,7 +853,65 @@ function saldoPanel({ L, payout, rate }) {
     </section>` : ''}`
 }
 
+// Relatório do mês, só com os saques (em reais)
+function reportData(wds) {
+  const months = [...new Set(wds.map(w => w.date?.slice(0, 7)).filter(Boolean))].sort()
+  if (!months.length) return null
+  if (!months.includes(state.wmonth)) state.wmonth = months.at(-1)
+  const ws = wds.filter(w => w.date?.startsWith(state.wmonth)).sort((a, b) => a.date.localeCompare(b.date))
+  const got = w => (w.amount_usd - WITHDRAW_FEE_USD) * w.rate_brl
+  const total = ws.reduce((s, w) => s + got(w), 0)
+  const totalUsd = ws.reduce((s, w) => s + Number(w.amount_usd), 0)
+  const name = new Date(`${state.wmonth}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const text = [
+    `My Stats · Saques de ${name}`, '',
+    ...ws.map(w => `${new Date(`${w.date}T12:00`).toLocaleDateString('pt-BR')}: ${usd(w.amount_usd)} − US$ 3 × ${brlRate(Number(w.rate_brl))} = ${brl(got(w))}`), '',
+    `Total sacado: ${usd(totalUsd)} (${ws.length} ${ws.length === 1 ? 'saque' : 'saques'}, ${usd(WITHDRAW_FEE_USD * ws.length)} de taxa)`,
+    `Total recebido: ${brl(total)}`,
+  ].join('\n')
+  return { months, i: months.indexOf(state.wmonth), ws, got, total, totalUsd, name, text }
+}
+
+function reportCard(wds) {
+  const r = reportData(wds)
+  if (!r) return ''
+  const label = r.name[0].toUpperCase() + r.name.slice(1)
+  const net = r.totalUsd - WITHDRAW_FEE_USD * r.ws.length
+  return `
+    <section class="card report">
+      <h2>Relatório do mês · saques</h2>
+      <div class="mini-month">
+        <button type="button" data-wmonth="-1" aria-label="Mês anterior" ${r.i === 0 ? 'disabled' : ''}>‹</button>
+        <strong>${esc(label)}</strong>
+        <button type="button" data-wmonth="1" aria-label="Próximo mês" ${r.i === r.months.length - 1 ? 'disabled' : ''}>›</button>
+      </div>
+      <div><span class="muted small">Recebido em reais</span><div class="total">${esc(brl(r.total))}</div></div>
+      <div class="grid">
+        ${stat('Sacado', usd(r.totalUsd), '', `${r.ws.length} ${r.ws.length === 1 ? 'saque' : 'saques'}`)}
+        ${stat('Cotação média', net > 0 ? brlRate(r.total / net) : '—', '', `taxas: ${usd(WITHDRAW_FEE_USD * r.ws.length)}`)}
+      </div>
+      <table><thead><tr><th>Data</th><th>Sacado</th><th>Cotação</th><th>Recebido</th></tr></thead>
+        <tbody>${r.ws.map(w => `<tr><td>${esc(shortDate(`${w.date}T12:00`))}</td><td>${esc(usd(w.amount_usd))}</td><td>${esc(brlRate(Number(w.rate_brl)).replace('R$ ', ''))}</td><td>${esc(brl(r.got(w)))}</td></tr>`).join('')}</tbody></table>
+      <button class="btn primary" type="button" data-share-report>Compartilhar relatório</button>
+    </section>`
+}
+
 function bindSaldo(view, { L }) {
+  view.querySelectorAll('[data-wmonth]').forEach(b => b.addEventListener('click', () => {
+    const r = reportData(state.data.withdrawals)
+    state.wmonth = r.months[r.i + Number(b.dataset.wmonth)]
+    renderRewards()
+  }))
+  view.querySelector('[data-share-report]')?.addEventListener('click', async () => {
+    const { text, name } = reportData(state.data.withdrawals)
+    try {
+      if (navigator.share) return await navigator.share({ title: `Saques de ${name}`, text })
+      await navigator.clipboard.writeText(text)
+      toast('Relatório copiado')
+    } catch (err) {
+      if (err?.name !== 'AbortError') toast('Não foi possível compartilhar')
+    }
+  })
   view.querySelector('[data-open-prints]')?.addEventListener('click', openPrints)
   const form = view.querySelector('#w-form')
   const calc = () => {
@@ -743,8 +932,10 @@ function bindSaldo(view, { L }) {
     const rate = num(form.rate.value)
     if (amount < 9) return toast('O saque mínimo é US$ 9.')
     if (!rate) return toast('Coloque o dólar do Payoneer.')
-    const { error } = await sb.from('withdrawals').insert({ amount_usd: amount, rate_brl: rate, date: form.date.value || today() })
+    const date = form.date.value || today()
+    const { error } = await sb.from('withdrawals').insert({ amount_usd: amount, rate_brl: rate, date })
     if (error) return toast('Erro ao registrar: ' + error.message)
+    state.wmonth = date.slice(0, 7)   // o relatório mostra o mês do saque que acabou de entrar
     toast('Saque registrado')
     renderRewards()
   })
