@@ -122,7 +122,7 @@ async function load(name) {
 function renderLogin() {
   app.innerHTML = `
     <main class="login">
-      <h1>My Stats</h1>
+      <h1>My <span class="gold">Stats</span></h1>
       <p class="muted">Entre com o seu usuário do Supabase.</p>
       <form id="login" class="stack">
         <label class="field"><span>E-mail</span><input name="email" type="email" autocomplete="username" required></label>
@@ -188,25 +188,35 @@ async function renderHome() {
   const inProgress = videos.filter(v => v.status !== 'postado')
   const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' })
 
+  const monthLabel = monthName[0].toUpperCase() + monthName.slice(1)
+
   view.innerHTML = `
+    <section class="hero">
+      <div class="hero-head"><span>Faturamento do mês</span><i class="pill">${esc(monthLabel)}</i></div>
+      <strong>${esc(brl(sum(ml, 'earnings')))}</strong>
+      <div class="gems">
+        <svg viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M12 21L8 9l4-6 4 6z"/></svg>
+        <b>${esc(int(sum(ml, 'diamonds')))}</b><span>diamantes registrados</span>
+      </div>
+    </section>
     <section>
       <h2>Lives em ${esc(monthName)}</h2>
       <div class="grid">
         ${stat('Lives', int(ml.length))}
         ${stat('Horas ao vivo', hours(sum(ml, 'duration_min')))}
-        ${stat('Ganhos', brl(sum(ml, 'earnings')))}
         ${stat('Novos seguidores', int(sum(ml, 'new_followers')))}
+        ${stat('Média por live', brl(ml.length ? sum(ml, 'earnings') / ml.length : 0))}
         ${stat('Pico médio', int(ml.length ? Math.round(sum(ml, 'peak_viewers') / ml.length) : 0))}
-        ${stat('Diamantes', int(sum(ml, 'diamonds')))}
+        ${stat('Público médio', int(ml.length ? Math.round(sum(ml, 'avg_viewers') / ml.length) : 0))}
       </div>
     </section>
     <section>
       <h2>Grana em ${esc(monthName)}</h2>
       <div class="grid">
         ${stat('Recebido', brl(received), 'pos')}
-        ${stat('Gasto', brl(spent), 'neg')}
         ${stat('A receber', brl(pending), 'warn')}
-        ${stat('Saldo', brl(received - spent))}
+        ${stat('Gasto', brl(spent), 'neg')}
+        ${stat('Saldo', brl(received - spent), received - spent >= 0 ? 'pos' : 'neg')}
       </div>
     </section>
     <section>
@@ -219,7 +229,27 @@ async function renderHome() {
     </section>
     <button id="logout" class="btn ghost">Sair</button>`
   bindList(view)
+  reveal(view)
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
+}
+
+// ---------- Animação ao rolar ----------
+
+const revealer = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue
+    e.target.classList.add('in')
+    revealer.unobserve(e.target)
+  }
+}, { rootMargin: '0px 0px -6% 0px' })
+
+function reveal(root) {
+  root.querySelectorAll('.hero, h2, .stat, .list li, .empty').forEach(el => {
+    const i = [...el.parentElement.children].indexOf(el)
+    el.classList.add('reveal')
+    el.style.transitionDelay = `${Math.min(i, 5) * 50}ms`
+    revealer.observe(el)
+  })
 }
 
 const stat = (label, value, tone = '') => `<div class="stat ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`
@@ -260,6 +290,7 @@ function paint(name) {
   const rows = state.data[name] || []
   view.innerHTML = rows.length ? list(name, rows) : empty(`Nada por aqui ainda.`, name)
   bindList(view)
+  reveal(view)
 }
 
 // ---------- Formulário ----------

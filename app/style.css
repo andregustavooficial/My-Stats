@@ -1,14 +1,17 @@
 :root {
-  --bg: #0e0f12;
-  --surface: #17191e;
-  --surface-2: #1f2228;
-  --line: #2a2d34;
-  --text: #f2f3f5;
-  --muted: #8b909a;
-  --accent: #ff3b5c;
-  --pos: #34c77b;
-  --neg: #ff6b6b;
-  --warn: #f5b843;
+  --bg: #07110c;
+  --surface: #0e1c15;
+  --surface-2: #15281e;
+  --line: #1f3529;
+  --text: #eef6f1;
+  --muted: #86a194;
+  --accent: #e3b65a;
+  --accent-2: #f6d98e;
+  --on-accent: #1a1406;
+  --green: #2fbf77;
+  --pos: #3fd68a;
+  --neg: #ff7a6b;
+  --warn: #f29a4a;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --radius: 14px;
   color-scheme: dark;
@@ -69,16 +72,51 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: upp
 .icon-btn {
   width: 40px; height: 40px; border-radius: 50%; border: 0;
   display: grid; place-items: center;
-  background: var(--accent); color: #fff;
+  background: linear-gradient(160deg, var(--accent-2), var(--accent)); color: var(--on-accent);
+  box-shadow: 0 4px 16px rgb(227 182 90 / 0.25);
   transition: transform 160ms var(--ease-out);
 }
 .icon-btn:active { transform: scale(0.92); }
 
 /* ---------- Cartões ---------- */
 
+.hero {
+  position: relative; overflow: hidden;
+  border-radius: 20px; padding: 20px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgb(227 182 90 / 0.22), transparent 60%),
+    linear-gradient(155deg, #145234, #0b2a1c 70%);
+  border: 1px solid rgb(246 217 142 / 0.14);
+}
+.hero-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hero-head span { font-size: 14px; color: rgb(238 246 241 / 0.75); }
+.pill {
+  font-style: normal; font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  padding: 4px 10px; border-radius: 99px;
+  color: var(--accent-2); background: rgb(227 182 90 / 0.14); border: 1px solid rgb(246 217 142 / 0.2);
+}
+.hero strong {
+  display: block; margin: 8px 0 16px;
+  font-size: 38px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.gems {
+  display: flex; align-items: center; gap: 8px;
+  padding-top: 14px; border-top: 1px solid rgb(246 217 142 / 0.12);
+}
+.gems svg { width: 20px; height: 20px; color: #8fe3ff; }
+.gems b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.gems span { font-size: 14px; color: rgb(238 246 241 / 0.7); }
+
+/* ---------- Animação ao rolar ---------- */
+
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity 500ms var(--ease-out), transform 600ms var(--ease-out); }
+.reveal.in { opacity: 1; transform: none; }
+
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .stat {
-  background: var(--surface); border-radius: var(--radius); padding: 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px;
   display: flex; flex-direction: column; gap: 4px; min-width: 0;
 }
 .stat span { font-size: 13px; color: var(--muted); }
@@ -87,7 +125,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: upp
 .stat.neg strong, em.neg { color: var(--neg); }
 .stat.warn strong, em.warn { color: var(--warn); }
 
-.list { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: var(--radius); overflow: hidden; }
+.list { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .list li + li { border-top: 1px solid var(--line); }
 .list button {
   width: 100%; display: flex; align-items: center; gap: 12px;
@@ -102,7 +140,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: upp
 
 .tag { font-style: normal; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
 .tag.roteiro, .tag.planejada { color: var(--warn); }
-.tag.gravado { color: #6aa8ff; }
+.tag.gravado { color: #7cc4ff; }
 .tag.postado, .tag.feita { color: var(--pos); }
 .tag.cancelada { color: var(--neg); }
 
@@ -117,7 +155,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: upp
 }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.5; }
-.btn.primary { background: var(--accent); color: #fff; }
+.btn.primary { background: linear-gradient(160deg, var(--accent-2), var(--accent)); color: var(--on-accent); }
 .btn.ghost { background: none; color: var(--muted); }
 .btn.danger { background: none; color: var(--neg); width: 100%; margin-top: 8px; }
 
@@ -139,6 +177,8 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: upp
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
 
 /* ---------- Login ---------- */
+
+h1 .gold { color: var(--accent); }
 
 .login {
   min-height: 100dvh; max-width: 420px; margin: 0 auto;
@@ -187,4 +227,5 @@ dialog#sheet.closing::backdrop { animation: fade-out 200ms ease-in forwards; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after, dialog#sheet::backdrop { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  .reveal { opacity: 1; transform: none; }
 }
