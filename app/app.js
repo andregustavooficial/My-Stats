@@ -34,7 +34,7 @@ const ENTITIES = {
     table: 'lives', title: 'Lives', single: 'live', order: ['date', false], importer: true,
     fields: [
       { key: 'title', label: 'Título da live', type: 'text', upper: true },
-      { key: 'date', label: 'Data', type: 'date', required: true, default: today, half: true },
+      { key: 'date', label: 'Data', type: 'date', required: true, half: true },
       { key: 'duration_min', label: 'Duração (min)', type: 'int', half: true },
       { key: 'rewards_usd', label: 'Recompensas (US$)', type: 'money', half: true },
       { key: 'diamonds', label: 'Diamantes', type: 'int', half: true },
@@ -528,6 +528,8 @@ function openForm(name, row, prefill) {
     closeSheet(); toast('Salvo'); go(state.tab)
   })
   sheet.showModal()
+  // o iPhone foca o primeiro botão ao abrir (o "Cancelar") e desenha um contorno nele
+  document.activeElement?.blur()
 }
 
 function bindImporter(form, e) {
@@ -1217,6 +1219,7 @@ function openPrints() {
     }
   })
   sheet.showModal()
+  document.activeElement?.blur()
 }
 
 function showWeekly(result, texts) {
