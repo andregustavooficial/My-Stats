@@ -91,7 +91,8 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
     }
     if (inSummary) {
       // "View all" pode aparecer no meio do resumo; ele só termina nas seções seguintes
-      if (/^(performance|desempenho|key metrics|m[eé]tricas|viewership|engagement|rewards|audi[eê]ncia|engajamento|recompensas)$/i.test(clean(line))) inSummary = false
+      // (a leitura de imagem pode trazer o "X" de fechar junto: "Key metrics X")
+      if (/^(performance|desempenho|viewers|espectadores|key metrics|m[eé]tricas|viewership|engagement|rewards|audi[eê]ncia|engajamento|recompensas)\b/i.test(clean(line))) inSummary = false
       return
     }
 
