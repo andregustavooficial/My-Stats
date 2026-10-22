@@ -1058,14 +1058,14 @@ function missoesPanel({ L, rate }) {
       </div>
       <div class="mission">
         <div class="row"><b>Manter liga ${esc(L.snap?.league || 'A1')}</b><em>${snapThisWeek?.league_days != null ? '+1%' : '—'}</em></div>
-        <div class="days">${[0, 1, 2, 3, 4, 5, 6].map(i => i < (snapThisWeek?.league_days ?? 0) ? `<i class="on">${CHECK}</i>` : '<i></i>').join('')}</div>
-        <p class="muted small">${snapThisWeek?.league_days != null ? `${snapThisWeek.league_days} de 7 dias, do print de ${esc(shortDate(snapThisWeek.taken_at))}.` : 'Atualiza com o print de domingo.'} Manter A1–A3 a semana toda = 1%, superar a melhor liga = 3%.</p>
+        <div class="days pick-days">${[1, 2, 3, 4, 5, 6, 7].map(d => `<button type="button" data-mld="${d}" class="${d <= (snapThisWeek?.league_days ?? 0) ? 'on' : ''}" aria-label="${d} de 7 dias" ${snapThisWeek ? '' : 'disabled'}>${d <= (snapThisWeek?.league_days ?? 0) ? CHECK : ''}</button>`).join('')}</div>
+        <p class="muted small">${snapThisWeek?.league_days != null ? `${snapThisWeek.league_days} de 7 dias. Toque numa bolinha para corrigir.` : snapThisWeek ? 'O print não trouxe os dias: toque na bolinha do último dia mantido.' : 'Atualiza com o print de domingo.'} Manter A1–A3 a semana toda = 1%, superar a melhor liga = 3%.</p>
       </div>
     </div>
 
     <div class="card">
       <h2>Simulador</h2>
-      <label class="field" for="sim-gems"><span>Se a próxima live fizer quantos diamantes?</span><input id="sim-gems" type="number" inputmode="numeric" min="0" placeholder="80000"></label>
+      <label class="field" for="sim-gems"><span>Se a próxima live fizer quantos diamantes?</span><input id="sim-gems" type="number" inputmode="numeric" min="0" value="80000"></label>
       <div class="row"><span>Na live (40%)</span><b id="sim-live">US$ 0,00</b></div>
       <div class="row"><span>A mais no semanal</span><b id="sim-week">US$ 0,00</b></div>
       <div class="row"><span>Total em reais</span><b class="gold" id="sim-brl">${rate ? 'R$ 0,00' : '—'}</b></div>
@@ -1073,7 +1073,16 @@ function missoesPanel({ L, rate }) {
 }
 
 function bindMissoes(view, { L, rate }) {
-  view.querySelector('#sim-gems').addEventListener('input', ev => {
+  view.querySelectorAll('[data-mld]').forEach(b => b.addEventListener('click', async () => {
+    const d = Number(b.dataset.mld)
+    const days = L.snap.league_days === d ? d - 1 : d
+    const { error } = await sb.from('reward_snapshots').update({ league_days: days }).eq('id', L.snap.id)
+    if (error) return toast('Erro ao salvar: ' + error.message)
+    renderRewards()
+  }))
+  const sim = view.querySelector('#sim-gems')
+  queueMicrotask(() => sim.dispatchEvent(new Event('input')))
+  sim.addEventListener('input', ev => {
     const gems = Number(ev.target.value) || 0
     const live = gems * 0.01 * 0.4
     const week = gems * 0.01 * (L.upcoming?.pct || 0) / 100
