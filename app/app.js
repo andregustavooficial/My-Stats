@@ -1246,3 +1246,29 @@ sb.auth.onAuthStateChange((_event, session) => {
   state.data = {}
   now ? renderShell() : renderLogin()
 })
+
+// ---------- Atualização automática ----------
+
+// O GitHub Pages deixa o iPhone guardar a página por 10 minutos. Ao abrir ou voltar para o app,
+// pergunta ao servidor (sem cache) qual é a versão publicada e, se mudou, abre a nova na hora.
+const VERSION = '__V__'   // trocado pelo commit na publicação
+
+async function checkUpdate() {
+  if (VERSION === '__' + 'V__') return   // rodando localmente, sem versão
+  try {
+    const html = await (await fetch(`./?check=${Date.now()}`, { cache: 'no-store' })).text()
+    const latest = html.match(/app\.js\?v=(\w+)/)?.[1]
+    if (latest && latest !== VERSION) {
+      try { sessionStorage.setItem('updated', '1') } catch {}
+      location.replace(`./?v=${latest}`)
+    }
+  } catch {
+    // sem internet: segue com a versão atual
+  }
+}
+
+checkUpdate()
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate() })
+try {
+  if (sessionStorage.getItem('updated')) { sessionStorage.removeItem('updated'); setTimeout(() => toast('App atualizado'), 600) }
+} catch {}
