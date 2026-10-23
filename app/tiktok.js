@@ -222,6 +222,8 @@ export function parseWeekly(text, now = new Date()) {
 // Resumo do mês: LIVE Analytics → Overview (período "Custom") → Key metrics e Viewer insights
 const MON_RX = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/gi
 
+const KNOWN = ['United Kingdom', 'United States', 'Saudi Arabia', 'South Africa', 'Brazil', 'Philippines', 'Italy', 'Portugal', 'Spain', 'Mexico', 'Indonesia', 'Germany', 'France', 'Argentina', 'Japan', 'Colombia', 'Peru', 'Chile', 'Canada', 'Angola', 'Mozambique', 'Paraguay', 'Uruguay', 'Bolivia', 'Venezuela', 'Ecuador', 'Others']
+
 export function isMonthPrint(text) {
   if (/live analysis/i.test(text)) return false
   if (/viewer insights|countries or regions/i.test(text)) return true
@@ -311,12 +313,20 @@ export function parseMonth(text, now = new Date()) {
   const g = text.match(/(\d{1,3})\s?%\s+(\d{1,3})\s?%\s*\n?\s*female\s+male/i)
   if (g) { out.female_pct = Number(g[1]); out.male_pct = Number(g[2]) }
   const ages = {}
-  for (const r of text.matchAll(/^\s*(13-17|18-24|25-34|35-44|45-54|55\+)\s+(\d{1,3})\s?%/gm)) ages[r[1]] = Number(r[2])
+  // a leitura às vezes troca o hífen ("45—54", "4554") ou some com o "+" do 55+
+  for (const r of text.matchAll(/^\W*(13|18|25|35|45)\s*\D{0,2}\s*(17|24|34|44|54)\s+(\d{1,3})\s?%/gm)) ages[`${r[1]}-${r[2]}`] = Number(r[3])
+  for (const r of text.matchAll(/^\W*55\s*\+?\s+(\d{1,3})\s?%/gm)) ages['55+'] = Number(r[1])
   if (Object.keys(ages).length) out.ages = ages
   const cs = text.split(/countries or regions/i)[1]
   if (cs) {
     const countries = []
-    for (const r of cs.matchAll(/^[^A-Za-z\n]*(?:[A-Z][a-z]{0,2}\s)?([A-Z][A-Za-z]+(?: [A-Z][a-z]+)*)\s+(\d{1,3})\s?%/gm)) countries.push([r[1], Number(r[2])])
+    // a bandeira vira letras soltas na leitura ("ER United Kingdom", "A Philippines"): procura o nome do país dentro da linha
+    for (const line of cs.split('\n')) {
+      const r = line.match(/([A-Z][a-z]+(?: [A-Z][a-z]+)*)\s+(\d{1,3})\s?%\s*$/)
+      if (!r) continue
+      const name = KNOWN.find(k => r[1].endsWith(k)) || r[1].replace(/^(?:[A-Z][A-Za-z]{0,2}\s)+/, '')
+      countries.push([name, Number(r[2])])
+    }
     if (countries.length) out.countries = countries
   }
   return out
