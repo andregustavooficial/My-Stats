@@ -525,3 +525,9 @@ svg.grow rect[style] { transform-box: fill-box; transform-origin: bottom; animat
 @media (prefers-reduced-motion: reduce) {
   .floaters svg, .feature.hero::after, svg.grow rect, .wiggle, .rec.new .rt::after, .flare, .slide-l, .slide-r { animation: none !important; }
 }
+
+/* barra de abas mais baixa e mais larga, acompanhando a curva da tela */
+.tabs { left: calc(env(safe-area-inset-left) + 6px); right: calc(env(safe-area-inset-right) + 6px); bottom: calc(env(safe-area-inset-bottom) * 0.3 + 4px); border-radius: 30px; }
+.tabs button { border-radius: 24px; }
+#view { padding-bottom: calc(env(safe-area-inset-bottom) + 92px); }
+#toast { bottom: calc(env(safe-area-inset-bottom) + 76px); }
