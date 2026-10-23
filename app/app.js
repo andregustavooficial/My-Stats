@@ -466,7 +466,10 @@ function renderHome(animate) {
   bindList(view)
   if (animate) reveal(view)
   view.querySelector('[data-goal]').addEventListener('click', () => openGoal(ym))
-  if (goal && gems >= goal.diamonds) setTimeout(() => celebrate(goal.diamonds, ym), animate ? 900 : 0)
+  if (goal && gems >= goal.diamonds) {
+    setTimeout(() => celebrate(goal.diamonds, ym), animate ? 900 : 0)
+    view.querySelector('.ring')?.addEventListener('click', () => celebrate(goal.diamonds, ym, true))
+  }
   view.querySelector('[data-go-lives]').addEventListener('click', () => go('lives'))
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
 }
@@ -593,20 +596,33 @@ function countUp(el) {
 }
 
 // meta batida: chuva de diamantes com o fundo desfocado (uma vez por mês)
-function celebrate(goal, ym) {
+function celebrate(goal, ym, again = false) {
   const key = `goal-party-${ym}`
-  try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1') } catch {}
+  if (!again) try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1') } catch {}
+  if (document.querySelector('.toastx')) return
   if (still()) return toast('Meta batida! 💎')
   const bl = document.createElement('div'); bl.className = 'blurbg'
   const box = document.createElement('div'); box.className = 'party'
-  box.innerHTML = Array.from({ length: 34 }, () => {
+  // primeiro uma explosão saindo do meio, depois a chuva
+  const burst = Array.from({ length: 16 }, (_, i) => {
+    const a = i / 16 * Math.PI * 2, r = 130 + Math.random() * 90, sz = 16 + Math.random() * 16
+    return `<svg class="burst" viewBox="0 0 24 24" style="width:${sz}px;height:${sz}px;--bx:${Math.cos(a) * r}px;--by:${Math.sin(a) * r}px;--r:${(Math.random() - 0.5) * 540}deg">${IC.gem}</svg>`
+  }).join('')
+  box.innerHTML = burst + Array.from({ length: 34 }, () => {
     const sz = 14 + Math.random() * 22
-    return `<svg viewBox="0 0 24 24" style="left:${Math.random() * 100}%;width:${sz}px;height:${sz}px;--dx:${(Math.random() - 0.5) * 120}px;--r:${(Math.random() - 0.5) * 720}deg;animation-duration:${2.2 + Math.random() * 1.8}s;animation-delay:${Math.random() * 1.2}s">${IC.gem}</svg>`
+    return `<svg viewBox="0 0 24 24" style="left:${Math.random() * 100}%;width:${sz}px;height:${sz}px;--dx:${(Math.random() - 0.5) * 120}px;--r:${(Math.random() - 0.5) * 720}deg;animation-duration:${2.2 + Math.random() * 1.8}s;animation-delay:${0.35 + Math.random() * 1.2}s">${IC.gem}</svg>`
   }).join('')
   const t = document.createElement('div'); t.className = 'toastx'
-  t.innerHTML = `<b>Meta batida! 💎</b><span>${esc(int(goal))} diamantes em ${esc(monthWord(ym))}</span>`
+  t.innerHTML = `<i class="tg">${IC.trophy ? `<svg viewBox="0 0 24 24">${IC.trophy}</svg>` : ''}</i><b>Meta batida!</b><span>${esc(int(goal))} diamantes em ${esc(monthWord(ym))}</span><small>toque pra fechar</small>`
   document.body.append(bl, box, t)
-  setTimeout(() => { bl.classList.add('off'); setTimeout(() => { bl.remove(); box.remove(); t.remove() }, 400) }, 3800)
+  let done = false
+  const close = () => {
+    if (done) return; done = true
+    t.classList.add('bye'); bl.classList.add('off'); box.classList.add('off')
+    setTimeout(() => { bl.remove(); box.remove(); t.remove() }, 450)
+  }
+  bl.addEventListener('click', close); t.addEventListener('click', close)
+  setTimeout(close, 4500)
 }
 
 function reveal(root) {
