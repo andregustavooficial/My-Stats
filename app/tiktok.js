@@ -226,7 +226,32 @@ export function isMonthPrint(text) {
   if (/live analysis/i.test(text)) return false
   if (/viewer insights|countries or regions/i.test(text)) return true
   // o gráfico do mês tem datas no eixo ("Aug 31 ... Sep 29"); o de uma live não
+  // topo do Overview: "Custom · Sep 1 - Sep 30"
+  if (/\bcustom\b/i.test(text) || /\b[a-z]{3}\s+1\s*[-–]\s*[a-z]{3}\s+\d{1,2}\b/i.test(text)) return true
   return /key metrics/i.test(text) && [...text.matchAll(MON_RX)].length >= 2
+}
+
+// Grade do topo do Overview: uma linha com os números e, embaixo, a linha com os nomes
+const GRID = [['views', /^views/i], ['diamonds', /^diamonds/i], ['duration_min', /^live duration/i], ['gifters', /^gifters/i],
+  ['new_followers', /^new followers/i], ['comments', /^comments/i], ['shares', /^shares/i], ['likes', /^likes/i]]
+function grid(text, out) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  for (let i = 0; i < lines.length - 1; i++) {
+    const vals = lines[i].match(/\d[\d.,]*\s?[KkMmBb]?h?\b/g)
+    if (!vals || lines[i].replace(/\d[\d.,]*\s?[KkMmBb]?h?\b/g, '').trim()) continue
+    let rest = lines[i + 1], keys = []
+    while (rest) {
+      const hit = GRID.find(([, rx]) => rx.test(rest))
+      if (!hit) break
+      keys.push(hit[0]); rest = rest.replace(hit[1], '').trim()
+    }
+    if (keys.length !== vals.length) continue
+    keys.forEach((k, j) => {
+      const v = vals[j].replace(/\s/g, '')
+      if (k === 'duration_min') { const h = v.match(/^(\d+)h$/); if (h) out[k] ??= Number(h[1]) * 60 }
+      else { const m = v.match(/^([\d.,]+)([KkMmBb])?$/); if (m) out[k] ??= kmb(m[1].replace(/,(?=\d{3}\b)/g, ''), m[2]) }
+    })
+  }
 }
 
 // "488.9K" → 488900; "2.6M" → 2600000; "304" → 304
@@ -250,7 +275,8 @@ export function parseMonth(text, now = new Date()) {
     avg_viewers: 'average concurrent viewers', gifters: 'gifters', new_followers: 'new followers', comments: 'comments',
     shares: 'shares', likes: 'likes', diamonds: '\\bdiamonds',
   }
-  for (const [k, label] of Object.entries(fields)) { const v = num(label); if (v != null) out[k] = v }
+  grid(text, out)
+  for (const [k, label] of Object.entries(fields)) { if (out[k] != null) continue; const v = num(label); if (v != null) out[k] = v }
   const rw = text.match(/estimated rewards\s*(?:US\$|USD)\s?([\d.,]+)\s?([KkMm])?/i)
   if (rw) out.rewards_usd = kmb(rw[1], rw[2])
   const w = text.match(/average watch duration\s*(?:(\d+)\s?m)?\s*(\d+)\s?s/i)
