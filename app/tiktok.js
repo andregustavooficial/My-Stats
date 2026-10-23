@@ -255,7 +255,30 @@ function grid(text, out) {
 }
 
 // "488.9K" → 488900; "2.6M" → 2600000; "304" → 304
-const kmb = (n, u) => Math.round(Number(n.replace(',', '.')) * ({ k: 1e3, m: 1e6, b: 1e9 }[(u || '').toLowerCase()] || 1))
+// O TikTok mostra no máximo uma casa decimal com K/M ("46.4K"); casa a mais é sujeira da leitura ("46.49K")
+const kmb = (n, u) => {
+  let v = n.replace(',', '.')
+  if (u) v = v.replace(/^(\d+\.\d)\d+$/, '$1')
+  return Math.round(Number(v) * ({ k: 1e3, m: 1e6, b: 1e9 }[(u || '').toLowerCase()] || 1))
+}
+
+// Confere os diamantes do mês com as recompensas (US$ 0,01 por diamante × ~51%).
+// Se não baterem (ex.: "2.6M" lido como "3"), calcula pelas recompensas, arredondado como o TikTok mostra.
+export function fixMonth(out) {
+  if (out.rewards_usd) {
+    const ratio = out.diamonds ? out.rewards_usd / (out.diamonds * 0.01) : 0
+    if (ratio < 0.35 || ratio > 0.7) {
+      const g = out.rewards_usd / 0.0051
+      const step = g >= 1e6 ? 1e5 : 1e2
+      out.diamonds = Math.round(g / step) * step
+    }
+  }
+  // "4.1K" lido como "41K": o ponto some e o número fica 10× maior. Presenteadores ficam perto dos novos seguidores
+  // e os espectadores ativos são poucos % dos únicos; muito acima disso, era o ponto
+  if (out.gifters && out.new_followers && out.gifters > out.new_followers * 6) out.gifters /= 10
+  if (out.active_viewers && out.unique_viewers && out.active_viewers > out.unique_viewers * 0.1) out.active_viewers /= 10
+  return out
+}
 
 export function parseMonth(text, now = new Date()) {
   const out = {}
