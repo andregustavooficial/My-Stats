@@ -242,7 +242,6 @@ function renderShell() {
     <header class="top"><div><small id="kicker"></small><h1 id="title"></h1></div>
       <div class="top-actions">
         <button id="prints" class="ibtn" aria-label="Mandar prints">${ic('cam')}<span>Prints</span><i class="due" hidden></i></button>
-        <button id="add" class="add" aria-label="Adicionar">${ic('plus')}</button>
       </div></header>
     <main id="view"></main>
     <nav class="tabs">${TABS.map(t => `
@@ -252,7 +251,6 @@ function renderShell() {
     const b = ev.target.closest('button[data-tab]')
     if (b) go(b.dataset.tab)
   })
-  document.getElementById('add').addEventListener('click', () => openForm(state.tab === 'home' ? 'lives' : state.tab))
   document.getElementById('prints').addEventListener('click', openPrints)
   go(state.tab)
 }
@@ -327,9 +325,6 @@ function go(tab) {
   document.getElementById('title').textContent = { home: 'E aí, Galli!', rewards: 'Recompensas', stats: 'Estatísticas' }[tab] ?? ENTITIES[tab].title
   const kicker = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
   document.getElementById('kicker').textContent = tab === 'home' ? kicker[0].toUpperCase() + kicker.slice(1).replace('-feira', '') : ''
-  document.getElementById('add').hidden = tab === 'rewards' || tab === 'stats'
-  document.getElementById('prints').hidden = !['lives', 'rewards'].includes(tab)
-  if (tab !== 'rewards' && tab !== 'stats') document.getElementById('add').setAttribute('aria-label', tab === 'home' ? 'Adicionar live' : `Adicionar ${ENTITIES[tab].single}`)
   window.scrollTo(0, 0)
   if (!DRAW[tab]) return renderList(tab)
   // Com dados na memória, desenha na hora (sem "Carregando…") e atualiza por trás
