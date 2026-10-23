@@ -455,3 +455,73 @@ body:has(dialog[open]) { overflow: hidden; }
 .ac b { text-align: right; } .ac em { font-style: normal; font-size: 11px; font-weight: 700; text-align: right; }
 .afoot { margin: 12px -16px -14px; padding: 9px 16px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; border-radius: 0 0 22px 22px; background: color-mix(in srgb, var(--lime) 35%, transparent); }
 .afoot svg { width: 14px; height: 14px; color: var(--copper); }
+
+/* ---------- Ícones em dois tons ---------- */
+
+svg { stroke-width: 2; }
+svg .d { fill: currentColor; fill-opacity: 0.18; stroke: none; }
+
+/* ---------- Acumulado em cobre (troféu) ---------- */
+
+.life { background: linear-gradient(120deg, #fbe0cc, #fdf1e7 55%, var(--card)); }
+.life .lg { background: linear-gradient(160deg, #f08a45, #c25a1c); box-shadow: 0 8px 18px -8px rgb(194 90 28 / 0.7); }
+.life small { color: #9a5a32; }
+.life em { color: #c25a1c; }
+.life::after { background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23c25a1c'%20stroke-width='1.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20fill='%23c25a1c'%20fill-opacity='.25'%20stroke='none'%20d='M8.5%204h7a1%201%200%200%201%201%201v4.5a4.5%204.5%200%200%201-9%200V5a1%201%200%200%201%201-1z'/%3E%3Cpath%20d='M8.5%204h7a1%201%200%200%201%201%201v4.5a4.5%204.5%200%200%201-9%200V5a1%201%200%200%201%201-1zM7.5%206H5.5a2.5%202.5%200%200%200%202.4%203.6M16.5%206h2a2.5%202.5%200%200%201-2.4%203.6M12%2014v3M10%2017h4a1%201%200%200%201%201%20.9l.3%201.6a.8.8%200%200%201-.8%201H9.5a.8.8%200%200%201-.8-1l.3-1.6a1%201%200%200%201%201-.9z'/%3E%3C/svg%3E"); opacity: 0.07; }
+.proj::after { right: -16px; top: 4px; width: 150px; height: 100px; background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2080'%20fill='none'%20stroke='%230e6b4f'%20stroke-width='3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Crect%20x='14'%20y='52'%20width='14'%20height='24'%20rx='5'%20fill='%230e6b4f'%20fill-opacity='.18'/%3E%3Crect%20x='38'%20y='40'%20width='14'%20height='36'%20rx='5'%20fill='%230e6b4f'%20fill-opacity='.18'/%3E%3Crect%20x='62'%20y='46'%20width='14'%20height='30'%20rx='5'%20fill='%230e6b4f'%20fill-opacity='.18'/%3E%3Crect%20x='86'%20y='24'%20width='14'%20height='52'%20rx='5'%20fill='%230e6b4f'%20fill-opacity='.18'/%3E%3Cpath%20d='M10%2040c12-6%2020-14%2032-14s16%208%2028%204%2020-18%2034-26'/%3E%3Cpath%20d='M92%204h12v12'/%3E%3C/svg%3E"); opacity: 0.09; }
+
+/* ---------- Animações ---------- */
+
+/* chuva de diamantes / notinhas no card principal */
+.feature.hero { overflow: hidden; isolation: isolate; }
+.feature.hero > :not(.floaters) { position: relative; z-index: 1; }
+.floaters { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.floaters svg { position: absolute; top: 0; color: #fff; opacity: 0.05; stroke-width: 1; translate: -50% -100%; animation: fall linear infinite; }
+@keyframes fall { from { transform: translate(0, -10px) rotate(-12deg); } to { transform: translate(14px, 460px) rotate(18deg); } }
+/* brilho que atravessa o card */
+.feature.hero::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.16) 48%, rgb(255 255 255 / 0.05) 54%, transparent 62%);
+  background-size: 250% 100%; background-position: 130% 0; animation: shine 7s ease-in-out 1.2s infinite; }
+@keyframes shine { 0% { background-position: 130% 0; } 22%, 100% { background-position: -30% 0; } }
+/* barras do gráfico crescendo em onda */
+svg.grow rect[style] { transform-box: fill-box; transform-origin: bottom; animation: grow 0.7s var(--ease) both; animation-delay: calc(var(--i) * 22ms); }
+@keyframes grow { from { transform: scaleY(0); } }
+/* troféu de recorde balança e brilha */
+.wiggle { animation: wiggle 0.9s ease-in-out 0.5s 2; transform-origin: 50% 80%; }
+@keyframes wiggle { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-14deg) scale(1.1); } 45% { transform: rotate(12deg) scale(1.1); } 70% { transform: rotate(-6deg); } }
+.rec.new .rt { position: relative; overflow: hidden; }
+.rec.new .rt::after { content: ""; position: absolute; inset: -40%; background: linear-gradient(110deg, transparent 40%, rgb(255 255 255 / 0.8) 50%, transparent 60%); transform: translateX(-100%); animation: glint 1.2s ease 0.8s 2; }
+@keyframes glint { to { transform: translateX(100%); } }
+/* foguinho da sequência acende */
+.flare { animation: flare 1.4s ease-out 0.4s 2; }
+@keyframes flare { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(226 116 47 / 0); } 35% { transform: scale(1.25); box-shadow: 0 0 0 8px rgb(226 116 47 / 0.25), 0 0 18px 4px rgb(255 170 90 / 0.6); } }
+/* troca de aba entra pelo lado */
+.slide-l { animation: slidel 0.42s var(--ease); } .slide-r { animation: slider 0.42s var(--ease); }
+@keyframes slidel { from { transform: translateX(-28px); opacity: 0.001; } }
+@keyframes slider { from { transform: translateX(28px); opacity: 0.001; } }
+/* salvar vira check */
+.saved { pointer-events: none; }
+.saved svg.ok { width: 22px; height: 22px; stroke-width: 2.6; stroke-dasharray: 24; stroke-dashoffset: 24; animation: draw 0.45s ease-out forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+/* puxar pra atualizar */
+.ptr { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 8px); z-index: 25; width: 38px; height: 38px; margin-left: -19px; border-radius: 50%; display: grid; place-items: center; background: var(--card); color: var(--accent); box-shadow: 0 6px 16px -6px rgb(15 42 32 / 0.4); opacity: 0; }
+.ptr.spin svg { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { rotate: 360deg; } }
+/* meta batida */
+.blurbg { position: fixed; inset: 0; z-index: 40; background: rgb(15 42 32 / 0.18); backdrop-filter: blur(10px) saturate(1.1); -webkit-backdrop-filter: blur(10px) saturate(1.1); animation: fade-in 0.35s ease both; transition: opacity 0.4s; }
+.blurbg.off { opacity: 0; }
+.party { position: fixed; inset: 0; z-index: 41; pointer-events: none; overflow: hidden; }
+.party svg { position: absolute; top: -40px; color: var(--copper); stroke-width: 1.6; animation: confetti linear forwards; }
+.party svg .d { fill-opacity: 0.5; }
+.party svg:nth-child(3n) { color: var(--lime); } .party svg:nth-child(4n) { color: #fff; }
+@keyframes confetti { to { transform: translate(var(--dx), 110vh) rotate(var(--r)); } }
+.toastx { position: fixed; left: 24px; right: 24px; top: 40%; z-index: 42; padding: 18px; border-radius: 24px; text-align: center; color: #fff;
+  background: linear-gradient(160deg, #f08a45, #c25a1c); box-shadow: 0 24px 50px -16px rgb(194 90 28 / 0.8);
+  animation: pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both, toast-out 0.4s ease 3.4s forwards; }
+.toastx b { display: block; font-size: 24px; font-weight: 800; } .toastx span { font-size: 13px; opacity: 0.9; }
+@keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes toast-out { to { transform: scale(0.9); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .floaters svg, .feature.hero::after, svg.grow rect, .wiggle, .rec.new .rt::after, .flare, .slide-l, .slide-r { animation: none !important; }
+}
