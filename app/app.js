@@ -1565,6 +1565,10 @@ sb.auth.onAuthStateChange((_event, session) => {
   now ? renderShell() : renderLogin()
 })
 
+// Sem zoom: o iPhone ignora o "user-scalable=no" da página, então o gesto de pinça é cancelado aqui
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false })
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault() }, { passive: false })
+
 // ---------- Atualização automática ----------
 
 // O GitHub Pages deixa o iPhone guardar a página por 10 minutos. Ao abrir ou voltar para o app,

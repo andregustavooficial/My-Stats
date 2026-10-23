@@ -587,3 +587,6 @@ dialog#sheet .sheet-body > :nth-child(n+5) { animation-delay: 0.23s; }
 @keyframes burst { 0% { transform: translate(0, 0) scale(0.2) rotate(0); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(var(--bx), var(--by)) scale(1) rotate(var(--r)); opacity: 0; } }
 .party.off { opacity: 0; transition: opacity 0.4s; }
 .ring { cursor: pointer; }
+
+/* sem zoom de toque duplo em nenhum lugar */
+html, body { touch-action: pan-x pan-y; }
