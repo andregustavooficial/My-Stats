@@ -110,12 +110,40 @@ const ENTITIES = {
 // Tabelas usadas só pela aba Recompensas (sem formulário genérico)
 ENTITIES.withdrawals = { table: 'withdrawals', order: ['created_at', false] }
 ENTITIES.snapshots = { table: 'reward_snapshots', order: ['taken_at', false] }
+ENTITIES.goals = { table: 'goals', order: ['month', false], optional: true }   // meta de diamantes do mês (migração 004)
+
+// Ícones (traço) usados nas telas
+const IC = {
+  home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+  live: '<circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"/>',
+  stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  gem: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/>',
+  usd: '<path d="M12 3v18M17 7.5c-1-1.5-3-2-5-2-2.5 0-4 1.3-4 3s1.5 2.6 4 3 4 1.3 4 3-1.5 3-4 3c-2 0-4-.5-5-2"/>',
+  bank: '<path d="M3 10h18M5 10v8M19 10v8M9 10v8M15 10v8M3 21h18M12 3l9 5H3z"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  heart: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
+  flame: '<path d="M12 21c-4 0-6.5-2.8-6.5-6.3 0-3.5 3-5.7 4-9 2.5 2 2.5 4.2 2.5 4.2s1.2-1.6 1.5-3.2c2.5 2.2 5 5 5 8 0 3.5-2.5 6.3-6.5 6.3z"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  text: '<path d="M5 5h14M5 10h14M5 15h9M5 20h6"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  cam: '<rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  chev: '<path d="M9 5l7 7-7 7"/>',
+}
+const ic = k => `<svg viewBox="0 0 24 24">${IC[k]}</svg>`
 
 const TABS = [
-  { id: 'home', label: 'Início', icon: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>' },
-  { id: 'lives', label: 'Lives', icon: '<circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"/>' },
-  { id: 'stats', label: 'Estatísticas', icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>' },
-  { id: 'rewards', label: 'Recompensas', icon: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/>' },
+  { id: 'home', label: 'Início', icon: 'home' },
+  { id: 'lives', label: 'Lives', icon: 'live' },
+  { id: 'stats', label: 'Estatísticas', icon: 'stats' },
+  { id: 'rewards', label: 'Recompensas', icon: 'gem' },
 ]
 
 const state = { tab: 'home', rtab: 'saldo', lmonth: null, lsort: 'data', wmonth: null, smonth: null, data: {}, rate: readCachedRate() }
@@ -171,7 +199,11 @@ function toast(msg) {
 async function load(name) {
   const e = ENTITIES[name]
   const { data, error } = await sb.from(e.table).select('*').order(e.order[0], { ascending: e.order[1] })
-  if (error) { toast('Erro ao carregar: ' + error.message); return state.data[name] || [] }
+  if (error) {
+    // tabela opcional ainda não criada no banco (ex.: metas antes da migração 004): segue sem ela
+    if (e.optional) return (state.data[name] = state.data[name] || [])
+    toast('Erro ao carregar: ' + error.message); return state.data[name] || []
+  }
   // títulos de lives sempre em maiúsculas, inclusive os salvos antes dessa regra
   if (name === 'lives') for (const l of data) if (l.title) l.title = l.title.toLocaleUpperCase('pt-BR')
   return (state.data[name] = data)
@@ -182,7 +214,7 @@ async function load(name) {
 function renderLogin() {
   app.innerHTML = `
     <main class="login">
-      <h1>My <span class="gold">Stats</span></h1>
+      <h1>My <span>Stats</span></h1>
       <p class="muted">Entre com o seu usuário do Supabase.</p>
       <form id="login" class="stack">
         <label class="field"><span>E-mail</span><input name="email" type="email" autocomplete="username" required></label>
@@ -205,17 +237,14 @@ function renderLogin() {
 
 function renderShell() {
   app.innerHTML = `
-    <header class="top"><h1 id="title"></h1>
+    <header class="top"><div><small id="kicker"></small><h1 id="title"></h1></div>
       <div class="top-actions">
-        <button id="prints" class="prints-btn" aria-label="Mandar prints">
-          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg>
-          <span>Prints</span><i class="due" hidden></i>
-        </button>
-        <button id="add" class="icon-btn" aria-label="Adicionar"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button id="prints" class="ibtn" aria-label="Mandar prints">${ic('cam')}<span>Prints</span><i class="due" hidden></i></button>
+        <button id="add" class="add" aria-label="Adicionar">${ic('plus')}</button>
       </div></header>
     <main id="view"></main>
     <nav class="tabs">${TABS.map(t => `
-      <button data-tab="${t.id}"><svg viewBox="0 0 24 24">${t.icon}</svg><span>${t.label}</span></button>`).join('')}
+      <button data-tab="${t.id}" aria-label="${t.label}">${ic(t.icon)}<span>${t.label}</span></button>`).join('')}
     </nav>`
   app.querySelector('.tabs').addEventListener('click', ev => {
     const b = ev.target.closest('button[data-tab]')
@@ -226,8 +255,24 @@ function renderShell() {
   go(state.tab)
 }
 
+// Parallax dos doodles do fundo: só mexe enquanto rola, e fica parado com "Reduzir movimento"
+{
+  const still = matchMedia('(prefers-reduced-motion: reduce)')
+  let ticking = false
+  addEventListener('scroll', () => {
+    if (still.matches || ticking) return
+    ticking = true
+    requestAnimationFrame(() => {
+      const y = scrollY
+      document.body.style.setProperty('--dx', `${(-y * 0.18) % 180}px`)
+      document.body.style.setProperty('--dy', `${(-y * 0.07) % 180}px`)
+      ticking = false
+    })
+  }, { passive: true })
+}
+
 // O que cada aba precisa do banco
-const NEEDS = { home: ['lives', 'withdrawals'], lives: ['lives'], stats: ['lives', 'withdrawals'], rewards: ['lives', 'withdrawals', 'snapshots'] }
+const NEEDS = { home: ['lives', 'withdrawals', 'goals'], lives: ['lives'], stats: ['lives', 'withdrawals'], rewards: ['lives', 'withdrawals', 'snapshots'] }
 const DRAW = { home: a => renderHome(a), lives: a => renderLives(a), stats: a => renderStats(a), rewards: a => renderRewards(a) }
 
 async function fetchFor(tab) {
@@ -246,7 +291,9 @@ async function reload(tab = state.tab) {
 function go(tab) {
   state.tab = tab
   app.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab))
-  document.getElementById('title').textContent = { home: 'Início', rewards: 'Recompensas', stats: 'Estatísticas' }[tab] ?? ENTITIES[tab].title
+  document.getElementById('title').textContent = { home: 'E aí, Galli!', rewards: 'Recompensas', stats: 'Estatísticas' }[tab] ?? ENTITIES[tab].title
+  const kicker = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+  document.getElementById('kicker').textContent = tab === 'home' ? kicker[0].toUpperCase() + kicker.slice(1).replace('-feira', '') : ''
   document.getElementById('add').hidden = tab === 'rewards' || tab === 'stats'
   document.getElementById('prints').hidden = !['lives', 'rewards'].includes(tab)
   if (tab !== 'rewards' && tab !== 'stats') document.getElementById('add').setAttribute('aria-label', tab === 'home' ? 'Adicionar live' : `Adicionar ${ENTITIES[tab].single}`)
@@ -259,68 +306,167 @@ function go(tab) {
   fetchFor(tab).then(changed => { if (state.tab === tab && (changed || !cached)) DRAW[tab](!cached) })
 }
 
+// ---------- Peças de tela ----------
+
+const sumOf = (rows, k) => rows.reduce((a, r) => a + (Number(r[k]) || 0), 0)
+const avgOf = (rows, k) => { const v = rows.map(r => Number(r[k])).filter(n => n > 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0 }
+const brl0 = v => 'R$ ' + new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(Math.round(Number(v) || 0))
+const dec = (v, d = 1) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: d, minimumFractionDigits: d }).format(v)
+// 1.963.400 → "1,96 mi"; 536.600 → "537 mil"
+const compact = v => (v >= 1e6 ? `${dec(v / 1e6, 2)} mi` : v >= 1e4 ? `${int(Math.round(v / 1e3))} mil` : int(Math.round(v)))
+const ymOf = d => d.toLocaleDateString('sv-SE').slice(0, 7)
+const prevYm = ym => { const [y, m] = ym.split('-').map(Number); return ymOf(new Date(y, m - 2, 15)) }
+const monthWord = ym => new Date(`${ym}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long' })
+const cap = t => t ? t[0].toUpperCase() + t.slice(1) : t
+const weekday = d => new Date(`${d}T12:00`).toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')
+
+// "↑ 12%" contra o valor de antes (vazio quando não há com o que comparar)
+function delta(cur, before) {
+  if (!before || cur == null) return ''
+  const p = (cur - before) / before * 100
+  return `<em class="${p >= 0 ? 'up' : 'down'}">${p >= 0 ? '↑' : '↓'} ${int(Math.round(Math.abs(p)))}%</em>`
+}
+
+const sec = (title, body, side = '') => `<section class="sec"><div class="sec-h"><h2>${title}</h2>${side}</div>${body}</section>`
+
+const ring = (pct, big, label) => `<div class="ring"><svg viewBox="0 0 84 84"><circle class="bg" cx="42" cy="42" r="36"/><circle class="fg" cx="42" cy="42" r="36" pathLength="100" stroke-dasharray="${Math.min(Math.max(pct, 0), 100).toFixed(1)} 100"/></svg><div><b>${big}</b><span>${label}</span></div></div>`
+
+// parte do card dividido (nome com ícone, número, comparação e uma linha de apoio)
+const qcell = (icon, label, value, extra = '', rate = '', money = false) =>
+  `<div class="q ${money ? 'money' : ''}"><small>${ic(icon)}${esc(label)}</small><span class="vr"><b>${esc(value)}</b>${extra}</span>${rate ? `<i class="rate">${esc(rate)}</i>` : ''}</div>`
+
+function monthPicker(ym, sub, attr, i, n) {
+  const [m, y] = new Date(`${ym}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).split(' de ')
+  return `
+    <div class="month">
+      <button type="button" ${attr}="-1" aria-label="Mês anterior" ${i === 0 ? 'disabled' : ''}>${ic('back')}</button>
+      <div><b>${esc(cap(m))} <em>${esc(y)}</em></b><span>${esc(sub)}</span></div>
+      <button type="button" ${attr}="1" aria-label="Próximo mês" ${i === n - 1 ? 'disabled' : ''}>${ic('chev')}</button>
+    </div>`
+}
+
+// linha de live: data no quadradinho, duração e valor, barrinha contra a melhor do mês
+function lvRow(l, max, bestId) {
+  const sub = [l.duration_min && `${hours(l.duration_min)} ao vivo`, l.rewards_usd != null && usd(l.rewards_usd)].filter(Boolean).join(' · ')
+  return `<button class="lv" data-edit="lives" data-id="${l.id}">
+    <span class="dt"><b>${esc(l.date.slice(8))}</b><small>${esc(weekday(l.date))}</small></span>
+    <div class="t"><b>${l.id === bestId ? `<i class="crown">${ic('trophy')}</i>` : ''}${esc(l.title || fmtDate(l.date))}</b><span>${esc(sub)}</span><i class="lb"><i style="transform:scaleX(${((Number(l.diamonds) || 0) / (max || 1)).toFixed(3)})"></i></i></div>
+    <b class="g">${l.diamonds != null ? esc(int(l.diamonds)) : '—'}</b>
+  </button>`
+}
+
 // ---------- Início ----------
 
 function renderHome(animate) {
   const view = document.getElementById('view')
   const { lives, withdrawals } = state.data
+  const goals = state.data.goals || []
 
-  const month = today().slice(0, 7)
-  const ml = lives.filter(l => l.date?.startsWith(month))
-  const sum = (arr, k) => arr.reduce((s, r) => s + (Number(r[k]) || 0), 0)
-  const saques = withdrawals.filter(w => w.date?.startsWith(month)).length
-  const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' })
-  const monthLabel = monthName[0].toUpperCase() + monthName.slice(1)
+  const ym = today().slice(0, 7)
+  const pym = prevYm(ym)
+  const day = new Date().getDate()
+  const ml = lives.filter(l => l.date?.startsWith(ym))
+  const pAll = lives.filter(l => l.date?.startsWith(pym))
+  const pSame = pAll.filter(l => +l.date.slice(8) <= day)   // mês passado até o mesmo dia
+  const saques = withdrawals.filter(w => w.date?.startsWith(ym)).length
 
-  const rewards = sum(ml, 'rewards_usd')
-  const fees = saques * WITHDRAW_FEE_USD
-  const net = Math.max(rewards - fees, 0)
+  const gems = sumOf(ml, 'diamonds')
+  const mins = sumOf(ml, 'duration_min')
+  const rewards = sumOf(ml, 'rewards_usd')
+  const net = Math.max(rewards - saques * WITHDRAW_FEE_USD, 0)
   const commercial = state.rate?.commercial
   const payout = payoutRate(withdrawals, commercial)
   const rate = payout?.rate ?? null
-  const perLive = ml.length ? rewards / ml.length : 0
   const life = lifetime(lives)
+  const pName = monthWord(pym)
+
+  // meta do mês: o anel mostra a meta; sem meta, compara com o mês passado inteiro
+  const goal = goals.find(g => g.month === ym)
+  const pGems = sumOf(pAll, 'diamonds')
+  const ringHtml = goal ? ring(gems / goal.diamonds * 100, `${int(Math.round(gems / goal.diamonds * 100))}%`, 'da meta')
+    : pGems ? ring(gems / pGems * 100, `${int(Math.round(gems / pGems * 100))}%`, `de ${esc(pName)}`) : ''
+  const nDays = new Date(+ym.slice(0, 4), +ym.slice(5), 0).getDate()
+  const left = goal ? goal.diamonds - gems : 0
+  const daysLeft = nDays - day + 1
+  const goalHtml = goal ? `
+      <div class="goal">
+        <div class="gh"><span>${ic('target')}Meta de ${esc(monthWord(ym))}</span><button type="button" data-goal aria-label="Editar meta"><b>${esc(int(goal.diamonds))}</b>${ic('pen')}</button></div>
+        <div class="gf">${left > 0
+          ? `<span>Faltam <b>${esc(int(left))}</b> · ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'}</span><span><b>${esc(compact(left / daysLeft))}</b> por dia</span>`
+          : `<span>Meta batida! <b>+${esc(int(-left))}</b></span>`}</div>
+      </div>` : `
+      <div class="goal"><div class="gh"><span>${ic('target')}Meta de ${esc(monthWord(ym))}</span><button type="button" data-goal><b style="font-family:inherit;font-size:13px">Definir meta</b>${ic('pen')}</button></div></div>`
+
+  const sameGems = sumOf(pSame, 'diamonds')
+  const vs = sameGems ? (() => { const p = (gems - sameGems) / sameGems * 100; return `<em>${p >= 0 ? '↑' : '↓'} ${int(Math.round(Math.abs(p)))}% vs. ${esc(pName)}</em>` })() : ''
+  const last = withdrawals[0]
+  const diff = last && commercial ? commercial - Number(last.rate_brl) : null
+  const perLive = ml.length ? rewards / ml.length : 0
+  const pPerLive = pAll.length ? sumOf(pAll, 'rewards_usd') / pAll.length : 0
+  const bestId = [...ml].sort((a, b) => (b.diamonds || 0) - (a.diamonds || 0))[0]?.id
+  const recent = lives.slice(0, 3)
+  const max = Math.max(...ml.map(l => Number(l.diamonds) || 0), ...recent.map(l => Number(l.diamonds) || 0), 1)
 
   view.innerHTML = `
-    <div class="lifetime">
-      <div class="gem"><span>Diamantes acumulados</span><b>${esc(int(life.diamonds))}</b></div>
-      <div><span>Valor estimado</span><b>${esc(usd0(Math.round(life.usd)))}</b></div>
-      <small>desde nov/2023</small>
+    <div class="feature">
+      <div class="k"><i>${ic('gem')}</i>Diamantes de ${esc(monthWord(ym))}${vs}</div>
+      <div class="ringrow"><div><div class="big num">${esc(int(gems))}</div><div class="sub">${ml.length ? `${esc(int(Math.round(gems / ml.length)))} por live${mins ? ` · ${esc(int(Math.round(gems / (mins / 60))))} por hora` : ''}` : 'Nenhuma live registrada no mês'}</div></div>${ringHtml}</div>
+      <div class="kpis"><div><span>Saldo do mês</span><b>${rate ? esc(brl0(net * rate)) : esc(usd(net))}</b></div><div><span>Lives</span><b>${ml.length}</b></div><div><span>Ao vivo</span><b>${esc(hours(mins))}</b></div></div>
+      ${goalHtml}
     </div>
-    <section class="hero">
-      <div class="hero-head"><span>Saldo estimado do mês</span><i class="pill">${esc(monthLabel)}</i></div>
-      <strong>${rate ? esc(brl(net * rate)) : esc(usd(net))}</strong>
-      <div class="usd">${rate ? `${esc(usd(net))} × ${esc(brl(rate))}` : 'Sem cotação do dólar no momento'}</div>
-      ${fees ? `<div class="fee">${esc(usd(rewards))} em recompensas − ${esc(usd(fees))} de taxa (${saques} ${saques === 1 ? 'saque' : 'saques'} × US$ 3)</div>` : ''}
-      <div class="gems">
-        <svg viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M12 21L8 9l4-6 4 6z"/></svg>
-        <b>${esc(int(sum(ml, 'diamonds')))}</b><span>diamantes registrados</span>
-      </div>
-    </section>
-    <div class="rate">
-      <div class="flag">US$</div>
-      <div class="txt"><span>${payout?.source === 'saque' ? 'Dólar do último saque' : 'Dólar estimado para saque'}</span><strong>${rate ? esc(brlRate(rate)) : '—'}</strong></div>
-      <div class="calc">${payout?.source === 'saque' ? `comercial hoje<br><b>${commercial ? esc(brl(commercial)) : '—'}</b>` : commercial ? `comercial <b>${esc(brl(commercial))}</b><br>− R$ 0,18` : 'sem conexão'}${state.rate?.source === 'Banco Central' ? '<br>(Banco Central)' : ''}</div>
+    <div class="life"><span class="lg">${ic('gem')}</span><div><small>Diamantes desde nov/2023</small><b>${esc(int(life.diamonds))}</b><em>≈ ${esc(usd0(Math.round(life.usd)))}</em></div></div>
+    <div class="fxp">
+      <div><small>${ic('usd')}${payout?.source === 'saque' ? 'Último saque' : 'Dólar estimado'}</small><b>${rate ? esc(brlRate(rate)) : '—'}</b><em>${last ? `${esc(shortDate(`${last.date}T12:00`))} · ${esc(METHOD[last.method] || 'Payoneer')}` : 'comercial − R$ 0,18'}</em></div>
+      <div><small>Comercial hoje${state.rate?.source === 'Banco Central' ? ' (BC)' : ''}</small><b>${commercial ? esc(brlRate(commercial)) : '—'}</b><em>${diff != null ? `${diff >= 0 ? '−' : '+'}R$ ${esc(dec(Math.abs(diff), 2))} no saque` : commercial ? '' : 'sem conexão'}</em></div>
     </div>
-    <section>
-      <h2>Lives em ${esc(monthName)}</h2>
-      <div class="grid">
-        ${stat('Lives registradas', int(ml.length))}
-        ${stat('Horas ao vivo', hours(sum(ml, 'duration_min')))}
-        ${stat('Novos seguidores', int(sum(ml, 'new_followers')))}
-        ${stat('Média por live', rate ? brl(perLive * rate) : usd(perLive), '', rate ? usd(perLive) : '')}
-        ${stat('Pico médio', int(ml.length ? Math.round(sum(ml, 'peak_viewers') / ml.length) : 0))}
-        ${stat('Curtidas', int(sum(ml, 'likes')))}
-      </div>
-    </section>
-    <section>
-      <h2>Últimas lives</h2>
-      ${lives.length ? liveList(lives.slice(0, 5), rate) : empty('Nenhuma live registrada.', 'lives')}
-    </section>
+    ${sec('Este mês', `<div class="quad">
+      ${qcell('user', 'Seguidores', '+' + int(sumOf(ml, 'new_followers')), delta(sumOf(ml, 'new_followers'), sumOf(pSame, 'new_followers')))}
+      ${qcell('usd', 'Por live', rate ? brl0(perLive * rate) : usd(perLive), delta(perLive, pPerLive), '', true)}
+      ${qcell('eye', 'Pico médio', int(Math.round(avgOf(ml, 'peak_viewers'))), delta(avgOf(ml, 'peak_viewers'), avgOf(pAll, 'peak_viewers')))}
+      ${qcell('heart', 'Curtidas', compact(sumOf(ml, 'likes')), delta(sumOf(ml, 'likes'), sumOf(pSame, 'likes')))}
+    </div>`, pAll.length ? `<span>vs. ${esc(pName)}</span>` : '')}
+    ${sec('Últimas lives', lives.length ? `<div class="group">${recent.map(l => lvRow(l, max, bestId)).join('')}</div>` : empty('Nenhuma live registrada.', 'lives'), '<button type="button" data-go-lives>Ver todas</button>')}
     <button id="logout" class="btn ghost">Sair</button>`
   bindList(view)
   if (animate) reveal(view)
+  view.querySelector('[data-goal]').addEventListener('click', () => openGoal(ym))
+  view.querySelector('[data-go-lives]').addEventListener('click', () => go('lives'))
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
+}
+
+// Meta de diamantes do mês: definir, mudar e ver as dos meses anteriores
+function openGoal(ym) {
+  const goals = state.data.goals || []
+  const cur = goals.find(g => g.month === ym)
+  const done = m => sumOf(state.data.lives.filter(l => l.date?.startsWith(m)), 'diamonds')
+  const past = goals.filter(g => g.month !== ym).slice(0, 6)
+  sheet.innerHTML = `
+    <form method="dialog" class="sheet-body">
+      <div class="sheet-head"><button type="button" class="link" data-close>Cancelar</button><strong>Meta de ${esc(monthWord(ym))}</strong><button type="submit" class="link strong">Salvar</button></div>
+      <div class="fields"><label class="field" for="goal-v"><span>Diamantes no mês</span><input id="goal-v" name="v" type="text" inputmode="numeric" placeholder="2.500.000" value="${cur ? esc(int(cur.diamonds)) : ''}" required></label></div>
+      ${past.length ? `<div class="card"><h3>Metas anteriores</h3>${past.map(g => { const d = done(g.month); return `<div class="row"><span>${esc(cap(monthWord(g.month)))} ${g.month.slice(0, 4)}</span><b class="${d >= g.diamonds ? 'up' : 'down'}">${esc(compact(d))} de ${esc(compact(g.diamonds))}</b></div>` }).join('')}</div>` : ''}
+      ${cur ? '<button type="button" class="btn danger" data-delete>Tirar a meta</button>' : ''}
+    </form>`
+  const form = sheet.querySelector('form')
+  sheet.querySelector('[data-close]').addEventListener('click', () => closeSheet())
+  sheet.querySelector('[data-delete]')?.addEventListener('click', async () => {
+    const { error } = await sb.from('goals').delete().eq('month', ym)
+    if (error) return toast('Erro ao tirar: ' + error.message)
+    closeSheet(); toast('Meta removida'); reload()
+  })
+  form.addEventListener('submit', async ev => {
+    ev.preventDefault()
+    const diamonds = parseInt(form.v.value.replace(/\D/g, ''), 10)
+    if (!(diamonds > 0)) return toast('Coloque quantos diamantes')
+    const save = form.querySelector('[type=submit]')
+    if (save.disabled) return
+    save.disabled = true
+    const { error } = await sb.from('goals').upsert({ month: ym, diamonds }, { onConflict: 'user_id,month' })
+    if (error) { save.disabled = false; return toast(/goals/.test(error.message) ? 'Falta criar a tabela de metas no Supabase (migração 004).' : 'Erro ao salvar: ' + error.message) }
+    closeSheet(); toast('Meta salva'); reload()
+  })
+  sheet.showModal()
+  document.activeElement?.blur()
 }
 
 // Dias seguidos com live (hoje ainda pode ter live, então a conta começa ontem se hoje não teve)
@@ -340,55 +486,38 @@ function streakCard(lives) {
     run = gap === 1 ? run + 1 : 1
     best = Math.max(best, run)
   }
-  const dots = Array.from({ length: 14 }, (_, i) => {
+  const cells = Array.from({ length: 14 }, (_, i) => {
     const x = new Date(); x.setDate(x.getDate() - 13 + i)
-    return `<i class="${days.has(ymd(x)) ? 'on' : ''} ${i === 13 ? 'today' : ''}"></i>`
+    const letter = x.toLocaleDateString('pt-BR', { weekday: 'narrow' }).toUpperCase()
+    return `<span class="${days.has(ymd(x)) ? 'on' : ''} ${i === 13 ? 'today' : ''}"><i></i>${letter}</span>`
   }).join('')
+  const sub = streak >= best ? 'seguidos com live · é o seu recorde!' : `seguidos com live · faltam ${best - streak} pro recorde`
   return `
-    <section class="streak">
-      <span class="n">${streak}</span>
-      <b>${streak === 1 ? 'dia seguido com live' : 'dias seguidos com live'}</b>
-      <span class="muted small">Sua maior sequência: ${best} ${best === 1 ? 'dia' : 'dias'}${liveToday ? '' : ' · hoje ainda não teve live'}</span>
-      <div class="dots">${dots}</div>
-    </section>`
+    <div class="feature">
+      <div class="k"><i class="cop">${ic('flame')}</i>Sequência<em>maior: ${best} ${best === 1 ? 'dia' : 'dias'}</em></div>
+      <div class="big" style="font-size:30px">${streak} ${streak === 1 ? 'dia' : 'dias'}</div>
+      <div class="sub">${sub}${liveToday ? '' : ' · hoje ainda não teve live'}</div>
+      <div class="streak">${cells}</div>
+    </div>`
 }
 
-// Mês passado: como fechou
-function closedCard(ml, rate, monthName) {
-  const gems = ml.reduce((s, l) => s + (Number(l.diamonds) || 0), 0)
-  if (!gems) return ''
-  const total = gems * 0.01 * 0.51
-  return `
-    <section class="proj">
-      <span class="lead">${esc(monthName[0].toUpperCase() + monthName.slice(1))} fechou com</span>
-      <b class="big">${esc(int(gems))} diamantes</b>
-      <div class="row"><span>Lives</span><b>${ml.length}</b></div>
-      <div class="row"><span>Em dólares (51%)</span><b>${esc(usd(total))}</b></div>
-      ${rate ? `<div class="row"><span>Em reais (cotação de hoje)</span><b>${esc(brl(total * rate))}</b></div>` : ''}
-      <div class="row"><span>Limite de saque no mês seguinte</span><b class="gold">${esc(usd0(limitFor(total).tier[1]))} por dia</b></div>
-    </section>`
-}
-
-// No ritmo do mês até hoje, quanto o mês fecha
-function projectionCard(ml, rate, monthName) {
-  const gems = ml.reduce((s, l) => s + (Number(l.diamonds) || 0), 0)
+// Projeção (mês atual) ou como o mês fechou (meses passados)
+function projCard(ml, rate, ym, current) {
+  const gems = sumOf(ml, 'diamonds')
   if (!gems) return ''
   const now = new Date()
-  const nDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-  const projected = gems / now.getDate() * nDays
-  const projUsd = projected * 0.01 * 0.51
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString('pt-BR', { month: 'long' })
-  return `
-    <section class="proj">
-      <span class="lead">No ritmo atual, ${esc(monthName)} fecha com</span>
-      <b class="big">${esc(int(Math.round(projected)))} diamantes</b>
-      <div class="pbar"><i style="transform:scaleX(${(gems / projected).toFixed(3)})"></i></div>
-      <div class="row"><span>Até hoje (dia ${now.getDate()} de ${nDays})</span><b>${esc(int(gems))}</b></div>
-      <div class="row"><span>Em dólares (51%)</span><b>${esc(usd(projUsd))}</b></div>
-      ${rate ? `<div class="row"><span>Em reais</span><b>${esc(brl(projUsd * rate))}</b></div>` : ''}
-      <div class="row"><span>Limite de saque em ${esc(nextMonth)}</span><b class="gold">${esc(usd0(limitFor(projUsd).tier[1]))} por dia</b></div>
-    </section>`
+  const [y, m] = ym.split('-').map(Number)
+  const nDays = new Date(y, m, 0).getDate()
+  const total = current ? gems / now.getDate() * nDays : gems
+  const totalUsd = total * 0.01 * 0.51
+  const next = monthWord(ymOf(new Date(y, m, 15))).slice(0, 3)
+  return sec(current ? 'Projeção' : 'Fechamento', `
+    <div class="proj">
+      <div class="pc"><small>${esc(cap(monthWord(ym)))} ${current ? 'deve fechar com' : 'fechou com'}</small><b>${esc(compact(total))}</b><span>${current ? `no ritmo de hoje · dia ${now.getDate()} de ${nDays}` : `${ml.length} ${ml.length === 1 ? 'live' : 'lives'} · ${esc(int(gems))} diamantes`}</span></div>
+      <div class="pk"><div><span>Em dólares</span><b>${esc(usd0(Math.round(totalUsd)))}</b></div><div><span>Em reais</span><b>${rate ? esc(brl0(totalUsd * rate)) : '—'}</b></div><div><span>Limite em ${esc(next)}.</span><b>${esc(compactUsd(limitFor(totalUsd).tier[1]))}</b></div></div>
+    </div>`)
 }
+const compactUsd = v => (v >= 1000 && v % 1000 === 0 ? `US$ ${int(v / 1000)} mil` : usd0(v))
 
 const brlRate = r => 'R$ ' + new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(r)
 
@@ -396,15 +525,6 @@ async function freshRate() {
   if (state.rate && Date.now() - (state.rateFetched || 0) < 30 * 60e3) return
   await loadRate()
   state.rateFetched = Date.now()
-}
-
-function liveList(rows, rate) {
-  return `<ul class="list">${rows.map(r => `
-    <li><button data-edit="lives" data-id="${r.id}">
-      <div class="txt"><strong>${esc(r.title || fmtDate(r.date))}</strong>
-        <span>${esc([r.title && fmtDate(r.date), r.duration_min && hours(r.duration_min), r.new_followers != null && `+${int(r.new_followers)} seg.`, r.diamonds != null && `${int(r.diamonds)} diamantes`].filter(Boolean).join(' · '))}</span></div>
-      ${r.rewards_usd != null ? `<div class="val"><b>${esc(rate ? brl(r.rewards_usd * rate) : usd(r.rewards_usd))}</b>${rate ? `<span>${esc(usd(r.rewards_usd))}</span>` : ''}</div>` : ''}
-    </button></li>`).join('')}</ul>`
 }
 
 // ---------- Animação ao rolar ----------
@@ -418,7 +538,7 @@ const revealer = new IntersectionObserver(entries => {
 }, { rootMargin: '0px 0px -6% 0px' })
 
 function reveal(root) {
-  root.querySelectorAll('.hero, .rate, .lifetime, .streak, .proj, .card, .records, h2, .stat, .list li, .empty').forEach(el => {
+  root.querySelectorAll('.feature, .life, .fxp, .sec, .month, .seg, .best, .chartcard, .card, .form, .proj, .ret, .rec, .quad, .empty').forEach(el => {
     const i = [...el.parentElement.children].indexOf(el)
     el.classList.add('reveal')
     el.style.transitionDelay = `${Math.min(i, 5) * 50}ms`
@@ -426,7 +546,6 @@ function reveal(root) {
   })
 }
 
-const stat = (label, value, tone = '', sub = '') => `<div class="stat ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`
 const empty = (msg, name) => `<div class="empty"><p class="muted">${esc(msg)}</p><button class="btn" data-new="${name}">Adicionar</button></div>`
 
 function list(name, rows) {
@@ -637,63 +756,42 @@ function monthStats(lives, month) {
 
 function funnelCard(s, prev) {
   const f = st => {
-    const t = k => st.ls.reduce((a, l) => a + (Number(l[k]) || 0), 0)
+    const t = k => sumOf(st.ls, k)
     const views = t('views'), unique = t('unique_viewers'), gifters = t('gifters'), followers = t('new_followers'), gems = t('diamonds')
-    return { views, unique, gifters, followers,
-      fol: unique ? followers / unique * 1000 : null, gif: unique ? gifters / unique * 100 : null, tick: gifters ? gems / gifters : null }
+    return { views, unique, gifters, followers, tick: gifters ? gems / gifters : null }
   }
   const F = f(s)
   if (!F.views || !F.unique) return ''
   const P = prev ? f(prev) : null
-  const change = (cur, before) => (cur != null && before ? `<small class="${cur >= before ? 'pos' : 'neg'}">${cur >= before ? '↑' : '↓'} ${int(Math.round(Math.abs((cur - before) / before * 100)))}%</small>` : '')
-  const dec1 = v => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(v)
-  return `
-    <section class="card">
-      <h2>Funil do mês</h2>
-      <div class="funnel">${[['Visualizações', F.views], ['Espectadores únicos', F.unique], ['Presenteadores', F.gifters], ['Novos seguidores', F.followers]].map(([n, v]) =>
-        `<div class="step"><span>${n}</span><b>${esc(int(v))}</b><i style="transform:scaleX(${Math.max(v / F.views, 0.015).toFixed(3)})"></i></div>`).join('')}</div>
-      <div class="kpis">
-        <div><span>Seguidores a cada 1.000 espectadores</span><b>${F.fol != null ? dec1(F.fol) : '—'}</b>${change(F.fol, P?.fol)}</div>
-        <div><span>Espectadores que presenteiam</span><b>${F.gif != null ? dec1(F.gif) + '%' : '—'}</b>${change(F.gif, P?.gif)}</div>
-        <div><span>Diamantes por presenteador</span><b>${F.tick != null ? esc(int(Math.round(F.tick))) : '—'}</b>${change(F.tick, P?.tick)}</div>
-      </div>
-      <p class="muted small">Somando todas as lives do mês. A variação é contra o mês anterior.</p>
-    </section>`
+  return sec('Público', `
+    <div class="quad">
+      ${qcell('eye', 'Visualizações', int(F.views), '', 'total do mês')}
+      ${qcell('user', 'Espectadores', int(F.unique), '', `${dec(F.unique / F.views * 100, 0)}% das views`)}
+      ${qcell('gem', 'Presenteadores', int(F.gifters), delta(F.gifters / F.unique, P?.unique ? P.gifters / P.unique : 0), `${dec(F.gifters / F.unique * 100)}% do público`)}
+      ${qcell('heart', 'Seguidores', '+' + int(F.followers), delta(F.followers / F.unique, P?.unique ? P.followers / P.unique : 0), `${dec(F.followers / F.unique * 1000)} a cada mil`)}
+    </div>
+    ${F.tick ? `<div class="fnote">${ic('gem')}Média de <b>${esc(int(Math.round(F.tick)))}</b> diamantes por presenteador</div>` : ''}`)
 }
 
-function retentionCard(lives, months) {
-  const avg = (ls, k) => { const v = ls.map(l => Number(l[k])).filter(n => n > 0); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null }
-  const rows = months.map(m => { const ls = lives.filter(l => l.date?.startsWith(m)); return { m, watch: avg(ls, 'avg_watch_sec'), peak: avg(ls, 'peak_viewers') } })
-    .filter(r => r.watch != null)
-  if (!rows.length) return ''
-  const cur = rows.at(-1), before = rows.at(-2)
-  const label = m => new Date(`${m}-15T12:00`).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
-  let chart = ''
-  if (rows.length > 1) {
-    const lo = Math.min(...rows.map(r => r.watch)) - 3, hi = Math.max(...rows.map(r => r.watch)) + 3
-    const pts = rows.map((r, i) => [i / (rows.length - 1) * 300, 76 - (r.watch - lo) / (hi - lo) * 70].map(n => n.toFixed(1)))
-    const line = pts.map(p => p.join(' ')).join(' L')
-    chart = `
-      <svg class="spark" viewBox="0 0 300 80" preserveAspectRatio="none" role="img" aria-label="Tempo médio assistido por mês">
-        <path d="M${line} L300 80 L0 80 Z" fill="rgb(227 182 90 / 0.12)" stroke="none"/>
-        <path d="M${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>
-        ${pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i === pts.length - 1 ? 4 : 3}" fill="${i === pts.length - 1 ? 'var(--accent-2)' : 'var(--accent)'}"/>`).join('')}
-      </svg>
-      <div class="legend">${rows.map(r => `<span>${esc(label(r.m))} · ${Math.round(r.watch)} s</span>`).join('')}</div>`
-  }
-  const d = before ? Math.round(cur.watch - before.watch) : null
-  return `
-    <section class="card">
-      <h2>Retenção</h2>
-      <div class="row"><span>Tempo médio assistido</span><b>${Math.round(cur.watch)} s${d != null ? ` <small class="${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '+' : '−'}${Math.abs(d)} s</small>` : ''}</b></div>
-      ${chart}
-      ${cur.peak != null ? `<div class="row"><span>Pico médio por live</span><b>${esc(int(Math.round(cur.peak)))}${before?.peak != null ? ` <small class="muted">(${esc(label(before.m))}: ${esc(int(Math.round(before.peak)))})</small>` : ''}</b></div>` : ''}
-    </section>`
+function retentionCard(s, prev, ym) {
+  const cur = avgOf(s.ls, 'avg_watch_sec')
+  if (!cur) return ''
+  const before = prev ? avgOf(prev.ls, 'avg_watch_sec') : 0
+  const d = before ? Math.round(cur - before) : null
+  const pName = monthWord(prevYm(ym))
+  const top = Math.max(cur, before) * 1.15
+  const bar = (label, v, on) => `<div class="rb ${on ? 'cur' : ''}"><span>${esc(label)}</span><i><i style="width:${(v / top * 100).toFixed(1)}%"></i></i><b>${Math.round(v)} s</b></div>`
+  const peak = avgOf(s.ls, 'peak_viewers'), pPeak = prev ? avgOf(prev.ls, 'peak_viewers') : 0
+  return sec('Retenção', `
+    <div class="ret">
+      <div class="rh"><div><small>Tempo médio assistido</small><b>${Math.round(cur)} s</b></div>${d != null ? `<em class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '↑' : '↓'} ${Math.abs(d)} s vs. ${esc(pName)}</em>` : ''}</div>
+      ${before ? bar(pName, before, false) : ''}${bar(monthWord(ym), cur, true)}
+      ${peak ? `<div class="row"><span>Pico médio por live</span><b class="num">${esc(int(Math.round(peak)))}${pPeak ? ` <span class="muted">(${esc(pName.slice(0, 3))}.: ${esc(int(Math.round(pPeak)))})</span>` : ''}</b></div>` : ''}
+    </div>`)
 }
 
 function recordsCard(lives) {
-  const withField = k => lives.filter(l => Number(l[k]) > 0)
-  const top = k => withField(k).reduce((a, l) => (!a || Number(l[k]) > Number(a[k]) ? l : a), null)
+  const top = k => lives.filter(l => Number(l[k]) > 0).reduce((a, l) => (!a || Number(l[k]) > Number(a[k]) ? l : a), null)
   const byMonth = {}
   for (const l of lives) if (l.date) byMonth[l.date.slice(0, 7)] = (byMonth[l.date.slice(0, 7)] || 0) + (Number(l.diamonds) || 0)
   const bestMonth = Object.entries(byMonth).sort((a, b) => b[1] - a[1])[0]
@@ -704,21 +802,18 @@ function recordsCard(lives) {
     if (run > best) { best = run; bestEnd = d }
   })
   const fresh = d => d && (Date.now() - new Date(`${d}T12:00`)) / 864e5 <= 7
-  const dmy = d => new Date(`${d}T12:00`).toLocaleDateString('pt-BR')
+  const dm = d => shortDate(`${d}T12:00`)
+  const gem = top('diamonds'), fol = top('new_followers'), peak = top('peak_viewers')
   const items = [
-    top('diamonds') && ['Maior live em diamantes', int(top('diamonds').diamonds), dmy(top('diamonds').date), top('diamonds').date],
-    top('new_followers') && ['Mais seguidores numa live', '+' + int(top('new_followers').new_followers), dmy(top('new_followers').date), top('new_followers').date],
-    top('peak_viewers') && ['Maior pico de espectadores', int(top('peak_viewers').peak_viewers), dmy(top('peak_viewers').date), top('peak_viewers').date],
-    bestMonth && bestMonth[1] && ['Melhor mês', `${int(bestMonth[1])} diamantes`, new Date(`${bestMonth[0]}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }), null],
-    best > 1 && ['Maior sequência de dias com live', `${best} dias`, `até ${dmy(bestEnd)}`, bestEnd],
+    gem && ['Maior live', int(gem.diamonds), `diamantes · ${dm(gem.date)}`, gem.date],
+    fol && ['Mais seguidores', '+' + int(fol.new_followers), `numa live · ${dm(fol.date)}`, fol.date],
+    peak && ['Maior pico', int(peak.peak_viewers), `espectadores · ${dm(peak.date)}`, peak.date],
+    bestMonth && bestMonth[1] && ['Melhor mês', compact(bestMonth[1]), new Date(`${bestMonth[0]}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }), null],
+    best > 1 && ['Maior sequência', `${best} dias`, `até ${new Date(`${bestEnd}T12:00`).toLocaleDateString('pt-BR')}`, null],
   ].filter(Boolean)
   if (!items.length) return ''
-  return `
-    <section>
-      <h2>Recordes</h2>
-      <ul class="records">${items.map(([label, value, when, date]) => `
-        <li class="${fresh(date) ? 'fresh' : ''}"><span>${esc(label)}</span><b>${esc(value)}</b><small>${esc(when)}</small></li>`).join('')}</ul>
-    </section>`
+  return sec('Recordes', `<div class="recs">${items.map(([label, value, when, date]) => `
+    <div class="rec ${fresh(date) ? 'new' : ''}"><i class="rt">${ic('trophy')}</i><div><small>${esc(label)}</small><span>${fresh(date) ? `<u>Novo recorde</u> · ${esc(dm(date))}` : esc(when)}</span></div><b>${esc(value)}</b></div>`).join('')}</div>`)
 }
 
 const perHour = l => (l.duration_min ? (Number(l.diamonds) || 0) / (l.duration_min / 60) : 0)
@@ -731,15 +826,6 @@ function renderLives(animate) {
   const i = months.indexOf(state.lmonth)
   const s = monthStats(lives, state.lmonth)
   const prev = i > 0 ? monthStats(lives, months[i - 1]) : null
-  const name = new Date(`${state.lmonth}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-
-  const delta = (cur, before) => {
-    if (!before) return ''
-    const p = (cur - before) / before * 100
-    return `<span class="${p >= 0 ? 'pos' : 'neg'}">${p >= 0 ? '↑' : '↓'} ${int(Math.round(Math.abs(p)))}% vs. mês anterior</span>`
-  }
-  const card = (label, value, cur, before, tone = '') =>
-    `<div class="stat ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${delta(cur, before)}</small></div>`
 
   let body
   if (!s.ls.length) {
@@ -752,57 +838,40 @@ function renderLives(animate) {
       : s.ls
     const [y, m] = state.lmonth.split('-').map(Number)
     const nDays = new Date(y, m, 0).getDate()
-    const byDay = Array.from({ length: nDays }, (_, d) => s.ls.filter(l => +l.date.slice(8) === d + 1).reduce((a, l) => a + (Number(l.diamonds) || 0), 0))
+    const byDay = Array.from({ length: nDays }, (_, d) => sumOf(s.ls.filter(l => +l.date.slice(8) === d + 1), 'diamonds'))
     const top = Math.max(...byDay, 1)
     const W = 300, H = 110, bw = W / nDays
-    const bars = byDay.map((g, d) => g ? `<rect x="${(d * bw + bw * 0.15).toFixed(1)}" y="${(H - g / top * H).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${(g / top * H).toFixed(1)}" rx="2" fill="${g === top ? 'var(--accent-2)' : 'var(--accent)'}" opacity="${g === top ? 1 : 0.65}"/>` : '').join('')
+    const bars = byDay.map((g, d) => g ? `<rect x="${(d * bw + bw * 0.15).toFixed(1)}" y="${(H - g / top * H).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${(g / top * H).toFixed(1)}" rx="2" fill="${g === top ? 'var(--copper)' : '#8fd3a4'}"/>` : '').join('')
     const avgY = (H - s.perDay / top * H).toFixed(1)
+    const pName = prev ? monthWord(months[i - 1]) : ''
     body = `
-      <section>
-        <h2>Comparativo do mês</h2>
-        <div class="grid">
-          ${card('Diamantes no mês', int(s.gems), s.gems, prev?.gems, 'gemv')}
-          ${card('Recompensas', usd(s.usd), s.usd, prev?.usd)}
-          ${card('Média por dia de live', int(Math.round(s.perDay)), s.perDay, prev?.perDay)}
-          ${card('Média por hora', int(Math.round(s.perHour)), s.perHour, prev?.perHour)}
-          ${card('Média por live', int(Math.round(s.perLive)), s.perLive, prev?.perLive)}
-          ${card('Horas ao vivo', hours(s.min), s.min, prev?.min)}
-        </div>
-      </section>
-      <section class="best">
-        <div class="hero-head"><span>Melhor live do mês</span><i class="pill">${esc(shortDay(best.date))}</i></div>
-        <b class="best-title">${esc(best.title || fmtDate(best.date))}</b>
-        <div class="best-nums"><span><b>${esc(int(best.diamonds))}</b> diamantes</span>${best.duration_min ? `<span>${esc(hours(best.duration_min))}</span><span><b>${esc(int(Math.round(perHour(best))))}</b> por hora</span>` : ''}${best.new_followers != null ? `<span>+${esc(int(best.new_followers))} seguidores</span>` : ''}</div>
-      </section>
-      <section class="card chart">
-        <h2>Diamantes por dia</h2>
+      ${sec(prev ? `Comparado a ${esc(pName)}` : 'O mês', `<div class="quad">
+        ${qcell('gem', 'Diamantes', compact(s.gems), delta(s.gems, prev?.gems))}
+        ${qcell('usd', 'Recompensas', s.usd >= 1e4 ? `US$ ${dec(s.usd / 1e3)} mil` : usd0(Math.round(s.usd)), delta(s.usd, prev?.usd), '', true)}
+        ${qcell('cal', 'Por dia de live', int(Math.round(s.perDay)), delta(s.perDay, prev?.perDay))}
+        ${qcell('clock', 'Por hora', int(Math.round(s.perHour)), delta(s.perHour, prev?.perHour))}
+        ${qcell('live', 'Por live', int(Math.round(s.perLive)), delta(s.perLive, prev?.perLive))}
+        ${qcell('clock', 'Ao vivo', hours(s.min), delta(s.min, prev?.min))}
+      </div>`)}
+      <div class="best"><span class="tr">${ic('trophy')}</span><div><small>Melhor live do mês · ${esc(weekday(best.date))}. ${esc(shortDate(`${best.date}T12:00`))}</small><b>${esc(best.title || fmtDate(best.date))}</b>
+        <p><span>${esc(int(best.diamonds))}</span> diam.${best.duration_min ? ` · <span>${esc(int(Math.round(perHour(best))))}</span>/h` : ''}${best.new_followers != null ? ` · <span>+${esc(int(best.new_followers))}</span> seg.` : ''}</p></div></div>
+      <div class="chartcard"><div class="hd"><b>Diamantes por dia</b><span>média <span class="num">${esc(int(Math.round(s.perDay)))}</span></span></div>
         <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Diamantes por dia do mês">
           <line x1="0" x2="${W}" y1="${H}" y2="${H}" stroke="var(--line)"/>${bars}
-          <line x1="0" x2="${W}" y1="${avgY}" y2="${avgY}" stroke="#8fe3ff" stroke-dasharray="4 4" stroke-width="1"/>
+          <line x1="0" x2="${W}" y1="${avgY}" y2="${avgY}" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1" opacity=".6"/>
         </svg>
-        <div class="legend"><span>dia 1</span><span class="gem-txt">média por dia de live: ${esc(int(Math.round(s.perDay)))}</span><span>dia ${nDays}</span></div>
-      </section>
-      <section>
+        <div class="axis"><span>1</span><span>8</span><span>15</span><span>22</span><span>${nDays}</span></div></div>
+      <section class="sec">
         <div class="sort-row"><h2>Lives</h2>
-          <div class="chips" role="group" aria-label="Ordenar">${[['data', 'Data'], ['diamantes', 'Diamantes'], ['hora', 'Por hora']].map(([k, l]) =>
+          <div class="pillbar" role="group" aria-label="Ordenar">${[['data', 'Data'], ['diamantes', 'Diamantes'], ['hora', 'Por hora']].map(([k, l]) =>
             `<button type="button" data-lsort="${k}" aria-pressed="${state.lsort === k}">${l}</button>`).join('')}</div>
         </div>
-        <ul class="list live-rank">${sorted.map(l => `
-          <li><button data-edit="lives" data-id="${l.id}">
-            <div class="txt"><strong>${esc(l.title || fmtDate(l.date))}</strong>
-              <span>${l === best ? '<b class="gold">Melhor do mês</b> · ' : ''}${esc([shortDay(l.date), l.duration_min && hours(l.duration_min), l.duration_min && l.diamonds != null && `${int(Math.round(perHour(l)))}/h`].filter(Boolean).join(' · '))}</span></div>
-            <div class="val"><b class="gem-txt">${l.diamonds != null ? esc(int(l.diamonds)) : '—'}</b>${l.rewards_usd != null ? `<span>${esc(usd(l.rewards_usd))}</span>` : ''}</div>
-            <i class="rank-bar"><i style="transform:scaleX(${(Number(l.diamonds) || 0) / max})"></i></i>
-          </button></li>`).join('')}</ul>
+        <div class="group">${sorted.map(l => lvRow(l, max, best.id)).join('')}</div>
       </section>`
   }
 
   view.innerHTML = `
-    <div class="month-pick">
-      <button type="button" data-month="-1" aria-label="Mês anterior" ${i === 0 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <div><strong>${esc(name[0].toUpperCase() + name.slice(1))}</strong><span>${s.ls.length} ${s.ls.length === 1 ? 'live' : 'lives'} · ${s.days} ${s.days === 1 ? 'dia' : 'dias'} de live</span></div>
-      <button type="button" data-month="1" aria-label="Próximo mês" ${i === months.length - 1 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
-    </div>
+    ${monthPicker(state.lmonth, `${s.ls.length} ${s.ls.length === 1 ? 'live' : 'lives'} · ${s.days} ${s.days === 1 ? 'dia' : 'dias'} de live`, 'data-month', i, months.length)}
     ${body}`
   view.querySelectorAll('[data-month]').forEach(b => b.addEventListener('click', () => {
     state.lmonth = months[i + Number(b.dataset.month)]
@@ -825,21 +894,15 @@ function renderStats(animate) {
   const s = monthStats(lives, state.smonth)
   const prev = i > 0 ? monthStats(lives, months[i - 1]) : null
   const rate = payoutRate(withdrawals, state.rate?.commercial)?.rate ?? null
-  const name = new Date(`${state.smonth}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-  const monthOnly = new Date(`${state.smonth}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long' })
   const parts = [
     streakCard(lives),
-    state.smonth === current ? projectionCard(s.ls, rate, monthOnly) : closedCard(s.ls, rate, monthOnly),
+    projCard(s.ls, rate, state.smonth, state.smonth === current),
     funnelCard(s, prev),
-    retentionCard(lives, months.slice(Math.max(0, i - 5), i + 1)),
+    retentionCard(s, prev, state.smonth),
     recordsCard(lives),
   ].filter(Boolean)
   view.innerHTML = `
-    <div class="month-pick">
-      <button type="button" data-smonth="-1" aria-label="Mês anterior" ${i === 0 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <div><strong>${esc(name[0].toUpperCase() + name.slice(1))}</strong><span>${s.ls.length} ${s.ls.length === 1 ? 'live' : 'lives'} no mês</span></div>
-      <button type="button" data-smonth="1" aria-label="Próximo mês" ${i === months.length - 1 ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
-    </div>
+    ${monthPicker(state.smonth, `${s.ls.length} ${s.ls.length === 1 ? 'live' : 'lives'} · ${s.days} ${s.days === 1 ? 'dia' : 'dias'} de live`, 'data-smonth', i, months.length)}
     ${parts.length ? parts.join('') : empty('Registre lives pelos prints para ver as estatísticas.', 'lives')}`
   view.querySelectorAll('[data-smonth]').forEach(b => b.addEventListener('click', () => {
     state.smonth = months[i + Number(b.dataset.smonth)]
@@ -856,6 +919,8 @@ const pct = v => `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
 const usd0 = v => 'US$ ' + new Intl.NumberFormat('pt-BR').format(v)
 const num = v => Number(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0
 const shortDate = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+const METHOD = { payoneer: 'Payoneer', pix: 'Pix' }
+const BANK = { inter: 'Inter', nubank: 'Nubank' }
 const SUB_TABS = { saldo: 'Saldo', missoes: 'Missões', limite: 'Limite', regras: 'Regras' }
 
 async function loadSettings() {
@@ -886,104 +951,98 @@ function renderRewards(animate) {
 
 const noPrint = () => `
   <div class="empty"><p class="muted">Mande o print de <b>Upcoming rewards</b> (Content rewards) para o app saber o seu saldo.</p>
-  <button class="btn" type="button" data-open-prints>Mandar prints</button></div>`
+  <button class="btn primary" type="button" data-open-prints>Mandar prints</button></div>`
+
+const got = w => (w.amount_usd - WITHDRAW_FEE_USD) * w.rate_brl
 
 function saldoPanel({ L, payout, rate }) {
   const wds = state.data.withdrawals
-  const lastRate = wds[0]?.rate_brl ?? (rate ? rate.toFixed(4) : '')
+  const ym = today().slice(0, 7)
+  const earned = monthEarned(state.data, ym)
+  const fromLives = sumOf(state.data.lives.filter(l => l.date?.startsWith(ym)), 'rewards_usd')
+  const received = wds.filter(w => w.date?.startsWith(ym)).reduce((a, w) => a + got(w), 0)
+  const last = wds[0]
+  const lastRate = last?.rate_brl ?? (rate ? rate.toFixed(4) : '')
+  const via = last?.method || 'payoneer', bank = last?.bank || 'inter'
   const entries = [
     ...(L.credit ? [{ when: L.credit.at, label: `Semanal ${shortDate(`${L.credit.week}T12:00`)}`, usd: L.credit.usd }] : []),
     ...state.data.lives.filter(l => l.rewards_usd != null).slice(0, 5).map(l => ({ when: new Date(`${l.date}T12:00`), label: `Live · ${shortDate(`${l.date}T12:00`)}`, usd: l.rewards_usd })),
   ].sort((a, b) => b.when - a.when).slice(0, 6)
-  const due = weekEndOf(L.current)
+  const r = reportData(wds)
+  const seg = (name, opts, on) => `<div class="seg2" data-pick="${name}">${Object.entries(opts).map(([k, l]) => `<button type="button" data-v="${k}" aria-pressed="${k === on}">${l}</button>`).join('')}</div>`
   return `
-    ${L.snap ? `
-    <section class="hero">
-      <div class="hero-head"><span>Disponível para sacar</span><i class="pill">print de ${esc(shortDate(L.snap.taken_at))}</i></div>
-      <strong>${esc(usd(L.available))}</strong>
-      <div class="usd">${rate ? `≈ ${esc(brl(Math.max(L.available - WITHDRAW_FEE_USD, 0) * rate))} num saque (US$ 1 = ${esc(brlRate(rate))}${payout.source === 'saque' ? '' : ', estimado'})` : ''}</div>
-    </section>
-    <div class="grid">
-      ${stat('A receber da semana', usd(L.upcoming.usd), '', `cai seg. ${shortDate(due)} à 1h · ${pct(L.upcoming.pct)}`)}
-      ${stat('Ganho no mês', usd(monthEarned(state.data, today().slice(0, 7))), '', rate ? '≈ ' + brl(monthEarned(state.data, today().slice(0, 7)) * rate) : '')}
-    </div>` : noPrint()}
+    <div class="feature">
+      <div class="k"><i>${ic('usd')}</i>Saldo de ${esc(monthWord(ym))}${rate ? `<em>US$ 1 = ${esc(brlRate(rate))}</em>` : ''}</div>
+      <div class="big num">${rate ? esc(brl0(earned * rate)) : esc(usd(earned))}</div>
+      <div class="sub"><span class="num">${esc(usd(earned))}</span> em recompensas no mês${rate ? ' · estimado em reais' : ''}</div>
+      <div class="kpis"><div><span>Nas lives</span><b>${esc(usd0(Math.round(fromLives)))}</b></div><div><span>Semanais</span><b>${esc(usd0(Math.round(earned - fromLives)))}</b></div><div><span>Já sacado</span><b>${esc(brl0(received))}</b></div></div>
+    </div>
 
-    <form class="card" id="w-form">
-      <h2>Registrar saque</h2>
+    ${L.snap ? sec('Na conta agora', `<div class="quad">
+      ${qcell('usd', 'Disponível', usd(L.available), '', rate ? `≈ ${brl(Math.max(L.available - WITHDRAW_FEE_USD, 0) * rate)}` : '', true)}
+      ${qcell('cal', 'A receber', usd(L.upcoming.usd), '', `cai seg. ${shortDate(weekEndOf(L.current))} à 1h · ${pct(L.upcoming.pct)}`)}
+    </div>`, `<span>print de ${esc(shortDate(L.snap.taken_at))}</span>`) : noPrint()}
+
+    ${sec('Registrar saque', `
+    <form class="form" id="w-form">
+      <div class="opt"><span>Saque via</span>${seg('method', METHOD, via)}</div>
+      <div class="opt"><span>Caiu no</span>${seg('bank', BANK, bank)}</div>
+      <input type="hidden" name="method" value="${via}"><input type="hidden" name="bank" value="${bank}">
       <div class="grid">
         <label class="field" for="w-amount"><span>Sacado no TikTok (US$)</span><input id="w-amount" name="amount" type="text" inputmode="decimal" placeholder="0,00" required></label>
-        <label class="field" for="w-rate"><span>Dólar no Payoneer (R$)</span><input id="w-rate" name="rate" type="text" inputmode="decimal" value="${esc(String(lastRate).replace('.', ','))}" required></label>
+        <label class="field" for="w-rate"><span id="w-rate-lbl">${via === 'pix' ? 'Cotação do Pix' : 'Dólar no Payoneer'}</span><input id="w-rate" name="rate" type="text" inputmode="decimal" value="${esc(String(lastRate).replace('.', ','))}" required></label>
       </div>
       <label class="field" for="w-date"><span>Data</span><input id="w-date" name="date" type="date" value="${today()}"></label>
-      <div class="result">
-        <div class="row"><span>Taxa do TikTok</span><b>− US$ 3,00</b></div>
-        <p class="muted small">Coloque o valor que saiu do TikTok (antes da taxa), não o que chegou no Payoneer.</p>
-        <div class="row"><span>Cai na sua conta</span><b class="total" id="w-total">R$ 0,00</b></div>
-        <p class="muted small" id="w-warn"></p>
-      </div>
+      <div class="sum"><div><span>Taxa do TikTok</span><b>− US$ 3,00</b></div><div><span>Cai na sua conta</span><b class="acc" id="w-total">R$ 0,00</b></div></div>
+      <p class="hint" id="w-warn"></p>
       <button class="btn primary" type="submit">Registrar saque</button>
-    </form>
+    </form>`)}
 
-    <section>
-      <h2>Saques</h2>
-      ${wds.length ? `<ul class="list">${wds.map(w => `
-        <li><button type="button" data-withdrawal="${w.id}">
-          <div class="txt"><strong>${esc(fmtDate(w.date))}</strong><span>${esc(usd(w.amount_usd))} − US$ 3 × ${esc(brlRate(Number(w.rate_brl)))}</span></div>
-          <div class="val"><b>${esc(brl((w.amount_usd - WITHDRAW_FEE_USD) * w.rate_brl))}</b></div>
-        </button></li>`).join('')}</ul>` : '<p class="muted small">Nenhum saque registrado.</p>'}
-    </section>
+    ${sec(r ? `Saques de ${esc(monthWord(r.ym))}` : 'Saques', r ? `<div class="group">
+      ${r.ws.slice().reverse().map(w => `<button type="button" class="lv" data-withdrawal="${w.id}">
+        <span class="dt"><b>${esc(w.date.slice(8))}</b><small>${esc(weekday(w.date))}</small></span>
+        <div class="t"><b>${esc(METHOD[w.method] || 'Payoneer')} <span class="bk" style="display:inline">→ ${esc(BANK[w.bank] || 'Inter')}</span></b><span class="num">${esc(usd0(Math.round(w.amount_usd)))} × ${esc(dec(Number(w.rate_brl), 4))}</span></div>
+        <b class="g">${esc(brl0(got(w)))}</b></button>`).join('')}
+      <div class="wfoot"><div><span>Recebido no mês</span><b>${esc(brl(r.total))}</b><small>${r.ws.length} ${r.ws.length === 1 ? 'saque' : 'saques'}</small></div><button type="button" data-report>${ic('text')}Relatório</button></div>
+    </div>` : '<p class="muted small" style="padding:0 6px">Nenhum saque registrado.</p>',
+      r && r.months.length > 1 ? `<span class="wmonth"><button type="button" data-wmonth="-1" aria-label="Mês anterior" ${r.i === 0 ? 'disabled' : ''}>${ic('back')}</button><button type="button" data-wmonth="1" aria-label="Próximo mês" ${r.i === r.months.length - 1 ? 'disabled' : ''}>${ic('chev')}</button></span>` : '')}
 
-    ${reportCard(wds)}
-
-    ${entries.length ? `
-    <section>
-      <h2>Últimas entradas</h2>
-      <ul class="list">${entries.map(e => `
-        <li><div class="row-item"><span>${esc(e.label)}</span><b class="pos">+${esc(usd(e.usd))}</b></div></li>`).join('')}</ul>
-    </section>` : ''}`
+    ${entries.length ? sec('Últimas entradas', `<div class="card">${entries.map(e => `<div class="row"><span>${esc(e.label)}</span><b class="up num">+${esc(usd(e.usd))}</b></div>`).join('')}</div>`) : ''}`
 }
 
-// Relatório do mês, só com os saques (em reais)
+// Relatório do mês: só os rendimentos, em reais (para o contador fazer o DAS)
 function reportData(wds) {
   const months = [...new Set(wds.map(w => w.date?.slice(0, 7)).filter(Boolean))].sort()
   if (!months.length) return null
   if (!months.includes(state.wmonth)) state.wmonth = months.at(-1)
   const ws = wds.filter(w => w.date?.startsWith(state.wmonth)).sort((a, b) => a.date.localeCompare(b.date))
-  const got = w => (w.amount_usd - WITHDRAW_FEE_USD) * w.rate_brl
-  const total = ws.reduce((s, w) => s + got(w), 0)
-  const totalUsd = ws.reduce((s, w) => s + Number(w.amount_usd), 0)
-  const name = new Date(`${state.wmonth}-15T12:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-  const text = [
-    `My Stats · Saques de ${name}`, '',
-    ...ws.map(w => `${new Date(`${w.date}T12:00`).toLocaleDateString('pt-BR')}: ${usd(w.amount_usd)} − US$ 3 × ${brlRate(Number(w.rate_brl))} = ${brl(got(w))}`), '',
-    `Total sacado: ${usd(totalUsd)} (${ws.length} ${ws.length === 1 ? 'saque' : 'saques'}, ${usd(WITHDRAW_FEE_USD * ws.length)} de taxa)`,
-    `Total recebido: ${brl(total)}`,
-  ].join('\n')
-  return { months, i: months.indexOf(state.wmonth), ws, got, total, totalUsd, name, text }
+  const total = ws.reduce((a, w) => a + got(w), 0)
+  const text = `Olá, segue o relatório atualizado do mês.\n📊 Rendimentos de ${monthWord(state.wmonth)}: ${brl(total)}`
+  return { ym: state.wmonth, months, i: months.indexOf(state.wmonth), ws, total, text }
 }
 
-function reportCard(wds) {
-  const r = reportData(wds)
-  if (!r) return ''
-  const label = r.name[0].toUpperCase() + r.name.slice(1)
-  const net = r.totalUsd - WITHDRAW_FEE_USD * r.ws.length
-  return `
-    <section class="card report">
-      <h2>Relatório do mês · saques</h2>
-      <div class="mini-month">
-        <button type="button" data-wmonth="-1" aria-label="Mês anterior" ${r.i === 0 ? 'disabled' : ''}>‹</button>
-        <strong>${esc(label)}</strong>
-        <button type="button" data-wmonth="1" aria-label="Próximo mês" ${r.i === r.months.length - 1 ? 'disabled' : ''}>›</button>
-      </div>
-      <div><span class="muted small">Recebido em reais</span><div class="total">${esc(brl(r.total))}</div></div>
-      <div class="grid">
-        ${stat('Sacado', usd(r.totalUsd), '', `${r.ws.length} ${r.ws.length === 1 ? 'saque' : 'saques'}`)}
-        ${stat('Cotação média', net > 0 ? brlRate(r.total / net) : '—', '', `taxas: ${usd(WITHDRAW_FEE_USD * r.ws.length)}`)}
-      </div>
-      <table><thead><tr><th>Data</th><th>Sacado</th><th>Cotação</th><th>Recebido</th></tr></thead>
-        <tbody>${r.ws.map(w => `<tr><td>${esc(shortDate(`${w.date}T12:00`))}</td><td>${esc(usd(w.amount_usd))}</td><td>${esc(brlRate(Number(w.rate_brl)).replace('R$ ', ''))}</td><td>${esc(brl(r.got(w)))}</td></tr>`).join('')}</tbody></table>
-      <button class="btn primary" type="button" data-share-report>Compartilhar relatório</button>
-    </section>`
+function openReport() {
+  const { text, ym } = reportData(state.data.withdrawals)
+  sheet.innerHTML = `
+    <div class="sheet-body">
+      <div class="sheet-head"><span></span><strong>Relatório de ${esc(monthWord(ym))}</strong><button type="button" class="link" data-close>OK</button></div>
+      <p class="muted small" style="text-align:center">Texto pronto pra mandar no WhatsApp do contador</p>
+      <pre class="wa">${esc(text)}</pre>
+      <button class="btn primary" type="button" data-copy>${ic('copy')}Copiar texto</button>
+    </div>`
+  sheet.querySelector('[data-close]').addEventListener('click', closeSheet)
+  sheet.querySelector('[data-copy]').addEventListener('click', async ev => {
+    try {
+      await navigator.clipboard.writeText(text)
+      ev.currentTarget.innerHTML = `${ic('copy')}Copiado!`
+    } catch {
+      // sem acesso à área de transferência: seleciona o texto para copiar na mão
+      getSelection().selectAllChildren(sheet.querySelector('.wa'))
+      toast('Toque em Copiar no texto selecionado')
+    }
+  })
+  sheet.showModal()
+  document.activeElement?.blur()
 }
 
 function bindSaldo(view, { L }) {
@@ -992,28 +1051,30 @@ function bindSaldo(view, { L }) {
     state.wmonth = r.months[r.i + Number(b.dataset.wmonth)]
     renderRewards(false)
   }))
-  view.querySelector('[data-share-report]')?.addEventListener('click', async () => {
-    const { text, name } = reportData(state.data.withdrawals)
-    try {
-      if (navigator.share) return await navigator.share({ title: `Saques de ${name}`, text })
-      await navigator.clipboard.writeText(text)
-      toast('Relatório copiado')
-    } catch (err) {
-      if (err?.name !== 'AbortError') toast('Não foi possível compartilhar')
-    }
-  })
+  view.querySelector('[data-report]')?.addEventListener('click', openReport)
   view.querySelector('[data-open-prints]')?.addEventListener('click', openPrints)
   const form = view.querySelector('#w-form')
   const calc = () => {
     const amount = num(form.amount.value)
     const rate = num(form.rate.value)
+    const pix = form.method.value === 'pix'
     view.querySelector('#w-total').textContent = brl(Math.max(amount - WITHDRAW_FEE_USD, 0) * rate)
     const limit = Number(state.data.settings.daily_limit_usd)
     view.querySelector('#w-warn').textContent =
       amount && amount < 9 ? 'O saque mínimo é US$ 9.'
+      : pix && !amount ? 'Pelo Pix o saque mínimo é US$ 9'
       : amount > limit ? `Seu limite é ${usd0(limit)} por dia.`
       : L.snap && form.date.value >= L.snap.taken_at.slice(0, 10) && amount > L.available + 0.005 ? `Mais do que o disponível (${usd(L.available)}).` : ''
   }
+  // Payoneer ou Pix, Inter ou Nubank
+  form.querySelectorAll('[data-pick]').forEach(g => g.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-v]')
+    if (!b) return
+    g.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b))
+    form[g.dataset.pick].value = b.dataset.v
+    if (g.dataset.pick === 'method') view.querySelector('#w-rate-lbl').textContent = b.dataset.v === 'pix' ? 'Cotação do Pix' : 'Dólar no Payoneer'
+    calc()
+  }))
   form.addEventListener('input', calc)
   form.date.addEventListener('change', calc)
   calc()
@@ -1022,14 +1083,17 @@ function bindSaldo(view, { L }) {
     const amount = num(form.amount.value)
     const rate = num(form.rate.value)
     if (amount < 9) return toast('O saque mínimo é US$ 9.')
-    if (!rate) return toast('Coloque o dólar do Payoneer.')
+    if (!rate) return toast('Coloque a cotação do dólar.')
     const date = form.date.value || today()
     const btn = form.querySelector('[type=submit]')
     if (btn.disabled) return
     btn.disabled = true
-    const { error } = await sb.from('withdrawals').insert({ amount_usd: amount, rate_brl: rate, date })
+    const row = { amount_usd: amount, rate_brl: rate, date, method: form.method.value, bank: form.bank.value }
+    let { error } = await sb.from('withdrawals').insert(row)
+    // banco ainda sem as colunas novas (migração 004): salva sem a forma e o banco
+    if (error && /method|bank/.test(error.message)) ({ error } = await sb.from('withdrawals').insert({ amount_usd: amount, rate_brl: rate, date }))
     if (error) { btn.disabled = false; return toast('Erro ao registrar: ' + error.message) }
-    state.wmonth = date.slice(0, 7)   // o relatório mostra o mês do saque que acabou de entrar
+    state.wmonth = date.slice(0, 7)   // a lista mostra o mês do saque que acabou de entrar
     toast('Saque registrado')
     reload('rewards')
   })
@@ -1050,51 +1114,42 @@ function missoesPanel({ L, rate }) {
   const snapThisWeek = L.snap && (L.snap.week_start || '') === L.current ? L.snap : null
   const last = state.data.lives[0]
   const lp = last ? livePct(last.duration_min, last.new_followers) : 0
-  const endLabel = new Date(`${days[6]}T12:00`).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+  const endLabel = new Date(`${days[6]}T12:00`).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '')
+  const letters = days.map(d => new Date(`${d}T12:00`).toLocaleDateString('pt-BR', { weekday: 'narrow' }).toUpperCase())
+  const ld = snapThisWeek?.league_days ?? 0
   return `
-    <section class="hero">
-      <div class="hero-head"><span>Semana de ${esc(shortDate(`${days[0]}T12:00`))} a ${esc(endLabel)}</span><i class="pill">${L.snap ? `${pct(L.upcoming.pct)} de 13%` : 'sem print'}</i></div>
-      <strong>${L.snap ? esc(usd(L.upcoming.usd)) : '—'}</strong>
-      <div class="usd">${L.snap ? `${esc(int(L.upcoming.gems))} diamantes · ${L.upcoming.fromPrint ? 'do print de domingo' : `estimativa com ${pct(L.upcoming.pct)} da última semana`}` : 'Mande o print de Upcoming rewards'}</div>
-    </section>
-
-    ${last ? `
-    <div class="card">
-      <h2>Última live · ${esc(shortDate(`${last.date}T12:00`))} · ${lp}%</h2>
-      <div class="ladder">${[
-        ['5 min ou mais', '30%', last.duration_min >= 5],
-        ['10 min ou mais', '35%', last.duration_min >= 10],
-        ['25 min ou mais', '38%', last.duration_min >= 25],
-        [`5 novos seguidores (fez ${int(last.new_followers ?? 0)})`, '+2%', (last.new_followers ?? 0) >= 5],
-      ].map(([what, p, done]) => `<div class="step ${done ? 'done' : ''}"><span class="dot">${done ? CHECK : ''}</span><span>${esc(what)}</span><b>${p}</b></div>`).join('')}</div>
-      ${last.diamonds ? `<div class="row"><span>${esc(int(last.diamonds))} × US$ 0,01 × ${lp}%</span><b>${esc(usd(last.diamonds * 0.01 * lp / 100))}</b></div>` : ''}
-    </div>` : ''}
-
-    <div class="card">
-      <h2>Missões da semana</h2>
-      <div class="mission">
-        <div class="row"><b>Dias válidos de live</b><em>+${daysPct(valid)}%</em></div>
-        <div class="days">${days.map(d => `<i class="${minutesByDay[d] >= 25 ? 'on' : ''}" title="${d}">${minutesByDay[d] >= 25 ? CHECK : ''}</i>`).join('')}</div>
-        <p class="muted small">Dia com 25 min ou mais de live, pelas lives registradas. 1 dia = 6%, 2 ou mais = 8%.</p>
-      </div>
-      <div class="mission">
-        <div class="row"><b>Fãs ativos</b><em>${snapThisWeek?.fans_done ? 'concluída' : '—'}</em></div>
-        <p class="muted small">10+ = 1%, 25+ = 1,5%, 100+ = 2%. Vem do print de domingo.</p>
-      </div>
-      <div class="mission">
-        <div class="row"><b>Manter liga ${esc(L.snap?.league || 'A1')}</b><em>${snapThisWeek?.league_days != null ? '+1%' : '—'}</em></div>
-        <div class="days pick-days">${[1, 2, 3, 4, 5, 6, 7].map(d => `<button type="button" data-mld="${d}" class="${d <= (snapThisWeek?.league_days ?? 0) ? 'on' : ''}" aria-label="${d} de 7 dias" ${snapThisWeek ? '' : 'disabled'}>${d <= (snapThisWeek?.league_days ?? 0) ? CHECK : ''}</button>`).join('')}</div>
-        <p class="muted small">${snapThisWeek?.league_days != null ? `${snapThisWeek.league_days} de 7 dias. Toque numa bolinha para corrigir.` : snapThisWeek ? 'O print não trouxe os dias: toque na bolinha do último dia mantido.' : 'Atualiza com o print de domingo.'} Manter A1–A3 a semana toda = 1%, superar a melhor liga = 3%.</p>
-      </div>
+    <div class="feature">
+      <div class="k"><i>${ic('cal')}</i>Semana de ${esc(shortDate(`${days[0]}T12:00`))} a ${esc(endLabel)}<em>${L.snap ? `${pct(L.upcoming.pct)} de 13%` : 'sem print'}</em></div>
+      <div class="ringrow"><div><div class="big num">${L.snap ? esc(usd(L.upcoming.usd)) : '—'}</div>
+        <div class="sub">${L.snap ? `<span class="num">${esc(int(L.upcoming.gems))}</span> diamantes · ${L.upcoming.fromPrint ? 'do print de domingo' : `estimativa com ${pct(L.upcoming.pct)}`}` : 'Mande o print de Upcoming rewards'}</div></div>
+        ${L.snap ? ring(L.upcoming.pct / 13 * 100, pct(L.upcoming.pct), 'de 13%') : ''}</div>
     </div>
 
-    <div class="card">
-      <h2>Simulador</h2>
+    ${sec('Dias válidos de live', `<div class="card"><div class="days">${days.map((d, k) => `<i class="${minutesByDay[d] >= 25 ? 'on' : ''}" title="${d}">${letters[k]}</i>`).join('')}</div>
+      <div class="row"><span>Dia com 25 min ou mais · 2 dias = 8%</span><em>+${daysPct(valid)}%</em></div></div>`)}
+
+    ${sec(`Manter liga ${esc(L.snap?.league || 'A1')}`, `<div class="card"><div class="days">${[1, 2, 3, 4, 5, 6, 7].map(d => `<button type="button" data-mld="${d}" class="${d <= ld ? 'on' : ''}" aria-label="${d} de 7 dias" ${snapThisWeek ? '' : 'disabled'}>${d}</button>`).join('')}</div>
+      <div class="row"><span>${snapThisWeek?.league_days != null ? 'Toque para corrigir os dias' : snapThisWeek ? 'Toque no último dia mantido' : 'Atualiza com o print de domingo'}</span><em>${snapThisWeek?.league_days != null ? '+1%' : '—'}</em></div>
+      <p class="muted small">Manter A1–A3 a semana toda = 1%, superar a melhor liga = 3%.</p></div>`)}
+
+    ${sec('Outras', `<div class="card">
+      <div class="row"><span>Fãs ativos · 10+ / 25+ / 100+</span><em>${snapThisWeek?.fans_done ? 'concluída' : '—'}</em></div>
+      ${last ? `<div class="mission"><div class="row"><b>Última live · ${esc(shortDate(`${last.date}T12:00`))}</b><em>${lp}%</em></div>
+        <div class="ladder">${[
+          ['5 min ou mais', '30%', last.duration_min >= 5],
+          ['10 min ou mais', '35%', last.duration_min >= 10],
+          ['25 min ou mais', '38%', last.duration_min >= 25],
+          [`5 novos seguidores (fez ${int(last.new_followers ?? 0)})`, '+2%', (last.new_followers ?? 0) >= 5],
+        ].map(([what, p, done]) => `<div class="step ${done ? 'done' : ''}"><span class="dot">${done ? CHECK : ''}</span><span>${esc(what)}</span><b>${p}</b></div>`).join('')}</div>
+        ${last.diamonds ? `<div class="row"><span class="num">${esc(int(last.diamonds))} × US$ 0,01 × ${lp}%</span><b class="num">${esc(usd(last.diamonds * 0.01 * lp / 100))}</b></div>` : ''}</div>` : ''}
+    </div>`)}
+
+    ${sec('Simulador', `<div class="form">
       <label class="field" for="sim-gems"><span>Se a próxima live fizer quantos diamantes?</span><input id="sim-gems" type="number" inputmode="numeric" min="0" value="80000"></label>
-      <div class="row"><span>Na live (40%)</span><b id="sim-live">US$ 0,00</b></div>
-      <div class="row"><span>A mais no semanal</span><b id="sim-week">US$ 0,00</b></div>
-      <div class="row"><span>Total em reais</span><b class="gold" id="sim-brl">${rate ? 'R$ 0,00' : '—'}</b></div>
-    </div>`
+      <div class="row"><span>Na live (40%)</span><b class="num" id="sim-live">US$ 0,00</b></div>
+      <div class="row"><span>A mais no semanal</span><b class="num" id="sim-week">US$ 0,00</b></div>
+      <div class="row"><span>Total em reais</span><b class="num acc" id="sim-brl">${rate ? 'R$ 0,00' : '—'}</b></div>
+    </div>`)}`
 }
 
 function bindMissoes(view, { L, rate }) {
@@ -1125,28 +1180,26 @@ function limitePanel() {
   const nextName = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('pt-BR', { month: 'long' })
   const progress = next ? (earned - tier[0]) / (next[0] - tier[0]) : 1
   return `
-    <section class="hero">
-      <div class="hero-head"><span>Limite de saque por dia</span><i class="pill">este mês</i></div>
-      <strong>${esc(usd0(current))}</strong>
+    <div class="feature">
+      <div class="k"><i>${ic('shield')}</i>Limite de saque por dia<em>este mês</em></div>
+      <div class="big num">${esc(usd0(current))}</div>
       <form class="inline-edit" id="lim-form">
         <input name="limit" type="number" inputmode="numeric" min="0" step="1" value="${current}" aria-label="Limite de saque deste mês">
-        <button class="btn" type="submit">Corrigir</button>
+        <button type="submit">Corrigir</button>
       </form>
-    </section>
-    <div class="card">
-      <div class="row"><span>Limite de ${esc(nextName)}</span><i class="pill ${tier[1] >= current ? 'ok' : 'down'}">${esc(usd0(tier[1]))} por dia</i></div>
-      <div class="row"><span>Ganho neste mês (estimado)</span><b>${esc(usd(earned))}</b></div>
-      <div class="bar"><i style="transform:scaleX(${Math.min(Math.max(progress, 0), 1)})"></i></div>
-      <p class="muted small">${next ? `Faltam ${esc(usd(next[0] - earned))} este mês para o limite de ${esc(nextName)} subir para ${esc(usd0(next[1]))} por dia.` : 'Você está na faixa mais alta.'} Conta as recompensas das lives registradas e os semanais que já caíram.</p>
     </div>
     <div class="card">
-      <h2>Tabela do TikTok</h2>
+      <div class="row"><span>Limite de ${esc(nextName)}</span><i class="pill ${tier[1] >= current ? 'ok' : 'down'}">${esc(usd0(tier[1]))} por dia</i></div>
+      <div class="row"><span>Ganho neste mês (estimado)</span><b class="num">${esc(usd(earned))}</b></div>
+      <div class="track" style="background:var(--s2);margin-top:0"><i style="transform:scaleX(${Math.min(Math.max(progress, 0), 1)});background:linear-gradient(90deg,var(--p1),var(--accent-2))"></i></div>
+      <p class="muted small">${next ? `Faltam <b class="num">${esc(usd(next[0] - earned))}</b> este mês para o limite de ${esc(nextName)} subir para ${esc(usd0(next[1]))} por dia.` : 'Você está na faixa mais alta.'} Conta as recompensas das lives registradas e os semanais que já caíram.</p>
+    </div>
+    ${sec('Tabela do TikTok', `<div class="card">
       <table>
         <thead><tr><th>Ganho no mês</th><th>Limite no mês seguinte</th></tr></thead>
         <tbody>${[...LIMIT_TIERS].reverse().map(([min, lim]) =>
           `<tr class="${min === tier[0] ? 'here' : next && min === next[0] ? 'next' : ''}"><td>${esc(usd0(min))}${min === tier[0] ? ' · você' : ''}</td><td>${esc(usd0(lim))}</td></tr>`).join('')}</tbody>
-      </table>
-    </div>`
+      </table></div>`)}`
 }
 
 function bindLimite(view) {
@@ -1164,17 +1217,17 @@ function bindLimite(view) {
 function regrasPanel() {
   const table = rows => `<table><tbody>${rows.map(([a, b, tone]) => `<tr><td>${a}</td><td${tone ? ` class="${tone}"` : ''}>${b}</td></tr>`).join('')}</tbody></table>`
   return `
-    <div class="card">
-      <h2>Como vira dinheiro</h2>
-      <p>Cada diamante vale US$ 0,01 e você fica com a sua porcentagem. Com 40%, <b>250 diamantes = US$ 1</b>.</p>
-      <p class="muted small">Ex.: 104.000 diamantes × US$ 0,01 × 40% = US$ 416,00</p>
+    <div class="feature">
+      <div class="k"><i>${ic('gem')}</i>Como vira dinheiro</div>
+      <div class="big" style="font-size:27px">250 diamantes = US$ 1</div>
+      <div class="sub">Cada diamante vale US$ 0,01 e você fica com a sua porcentagem (40% por live).<br>Ex.: <span class="num">104.000 × US$ 0,01 × 40% = US$ 416,00</span></div>
     </div>
-    <div class="card"><h2>Por live · até 40%</h2>${table([['Menos de 5 min', '20%'], ['5 min ou mais', '30%'], ['10 min ou mais', '35%'], ['25 min ou mais', '38%'], ['+ 5 novos seguidores', '+2%']])}</div>
-    <div class="card"><h2>Por semana · até 13%</h2>${table([['1 dia válido (25 min+)', '6%'], ['2 dias válidos ou mais', '8%'], ['10+ fãs ativos', '1%'], ['25+ fãs ativos', '1,5%'], ['100+ fãs ativos', '2%'], ['Manter liga A1–A3', '1%'], ['Superar a melhor liga', '3%']])}
-      <p class="muted small">A semana vai de segunda a domingo e vira na segunda à 1h. O semanal cai no saldo nessa hora.</p></div>
-    <div class="card"><h2>Liga · fragmentos por dia (liga A)</h2>${table([['Top 1% no fechamento do dia', '+3', 'pos'], ['Top 10%', '+2', 'pos'], ['Top 20%', '+1', 'pos'], ['Top 60%', '0'], ['Abaixo disso ou sem live', '−1', 'neg']])}
-      <p class="muted small">+4 fragmentos sobe de liga, −4 cai. Escudos bloqueiam uma perda cada, até 10. O Guardião pode forjar fragmentos (3 chances por semana) e mandar 1 escudo por semana. A posição muda o dia todo: vale a do fechamento.</p></div>
-    <div class="card"><h2>Saque</h2>${table([['Taxa', 'US$ 3 por saque'], ['Mínimo', 'US$ 9'], ['Pix', 'até US$ 2.500 por saque'], ['Payoneer', 'até o limite diário']])}</div>`
+    ${sec('Por live · até 40%', `<div class="card">${table([['Menos de 5 min', '20%'], ['5 min ou mais', '30%'], ['10 min ou mais', '35%'], ['25 min ou mais', '38%'], ['+ 5 novos seguidores', '+2%']])}</div>`)}
+    ${sec('Por semana · até 13%', `<div class="card">${table([['1 dia válido (25 min+)', '6%'], ['2 dias válidos ou mais', '8%'], ['10+ fãs ativos', '1%'], ['25+ fãs ativos', '1,5%'], ['100+ fãs ativos', '2%'], ['Manter liga A1–A3', '1%'], ['Superar a melhor liga', '3%']])}
+      <p class="muted small">A semana vai de segunda a domingo e vira na segunda à 1h. O semanal cai no saldo nessa hora.</p></div>`)}
+    ${sec('Liga · fragmentos por dia', `<div class="card">${table([['Top 1% no fechamento do dia', '+3', 'pos'], ['Top 10%', '+2', 'pos'], ['Top 20%', '+1', 'pos'], ['Top 60%', '0'], ['Abaixo disso ou sem live', '−1', 'neg']])}
+      <p class="muted small">+4 fragmentos sobe de liga, −4 cai. Escudos bloqueiam uma perda cada, até 10. O Guardião pode forjar fragmentos (3 chances por semana) e mandar 1 escudo por semana. A posição muda o dia todo: vale a do fechamento.</p></div>`)}
+    ${sec('Saque', `<div class="card">${table([['Taxa (Payoneer e Pix)', 'US$ 3 por saque'], ['Mínimo', 'US$ 9'], ['Pix', 'até US$ 2.500 por saque'], ['Payoneer', 'até o limite diário']])}</div>`)}`
 }
 
 // ---------- Prints ----------
@@ -1194,7 +1247,7 @@ function openPrints() {
   const due = updateDue()
   sheet.innerHTML = `
     <div class="sheet-body prints-sheet">
-      <div class="sheet-head"><strong>Mandar prints</strong><button type="button" class="link" data-close>Fechar</button></div>
+      <div class="sheet-head"><span></span><strong>Mandar prints</strong><button type="button" class="link" data-close>Fechar</button></div>
       ${due ? '<i class="pill">domingo: falta o semanal</i>' : ''}
       <label class="btn primary file-btn" for="prints-files">Escolher prints</label>
       <input id="prints-files" type="file" accept="image/*" multiple hidden>
@@ -1260,10 +1313,10 @@ function showWeekly(result, texts) {
     ['Fãs ativos', data.fans_done ? 'concluída' : null],
   ].filter(([, v]) => v)
   result.insertAdjacentHTML('beforeend', `
-    <div class="card"><b>Upcoming rewards</b>
+    <div class="card"><h3>Upcoming rewards</h3>
       ${rows.map(([k, v]) => `<div class="row"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}
       <div class="row"><span>Dias mantidos na liga</span><b class="muted small">${data.league_days != null ? 'lido do print' : 'toque para marcar'}</b></div>
-      <div class="days pick-days">${[1, 2, 3, 4, 5, 6, 7].map(d => `<button type="button" data-ld="${d}" aria-label="${d} de 7 dias"></button>`).join('')}</div>
+      <div class="days">${[1, 2, 3, 4, 5, 6, 7].map(d => `<button type="button" data-ld="${d}" aria-label="${d} de 7 dias">${d}</button>`).join('')}</div>
       ${data.available_usd == null ? '<p class="muted small">Não achei o saldo disponível nesse print.</p>' : ''}
       <details class="raw-box"><summary class="muted small">Ver texto lido</summary><pre>${esc(texts.join('\n=====\n'))}</pre></details>
       <button class="btn primary" type="button" data-save-week ${data.available_usd == null ? 'disabled' : ''}>Salvar semana</button></div>`)
@@ -1271,7 +1324,6 @@ function showWeekly(result, texts) {
   const paint = () => result.querySelectorAll('[data-ld]').forEach(b => {
     const on = Number(b.dataset.ld) <= (data.league_days ?? 0)
     b.classList.toggle('on', on)
-    b.innerHTML = on ? CHECK : ''
   })
   result.querySelectorAll('[data-ld]').forEach(b => b.addEventListener('click', () => {
     const d = Number(b.dataset.ld)
