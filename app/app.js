@@ -115,29 +115,30 @@ ENTITIES.goals = { table: 'goals', order: ['month', false], optional: true }   /
 
 // Ícones (traço) usados nas telas
 const IC = {
-  home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
-  live: '<circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"/>',
-  stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
-  gem: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20"/>',
-  usd: '<path d="M12 3v18M17 7.5c-1-1.5-3-2-5-2-2.5 0-4 1.3-4 3s1.5 2.6 4 3 4 1.3 4 3-1.5 3-4 3c-2 0-4-.5-5-2"/>',
-  bank: '<path d="M3 10h18M5 10v8M19 10v8M9 10v8M15 10v8M3 21h18M12 3l9 5H3z"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
-  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
-  heart: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
-  flame: '<path d="M12 21c-4 0-6.5-2.8-6.5-6.3 0-3.5 3-5.7 4-9 2.5 2 2.5 4.2 2.5 4.2s1.2-1.6 1.5-3.2c2.5 2.2 5 5 5 8 0 3.5-2.5 6.3-6.5 6.3z"/>',
-  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8"/>',
-  cal: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>',
-  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
-  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/>',
-  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
-  text: '<path d="M5 5h14M5 10h14M5 15h9M5 20h6"/>',
-  copy: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
-  cam: '<rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  back: '<path d="M15 5l-7 7 7 7"/>',
-  chev: '<path d="M9 5l7 7-7 7"/>',
+  text: '<rect class="d" x="5" y="3" width="14" height="18" rx="4"/><rect x="5" y="3" width="14" height="18" rx="4"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/>',
+  copy: '<rect class="d" x="8" y="8" width="12" height="12" rx="4"/><rect x="8" y="8" width="12" height="12" rx="4"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/>',
+  target: '<circle class="d" cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+  pen: '<path class="d" d="M4 19v-2.5L15.5 5a2.1 2.1 0 0 1 3 3L7.5 20H5a1 1 0 0 1-1-1z"/><path d="M4 19v-2.5L15.5 5a2.1 2.1 0 0 1 3 3L7.5 20H5a1 1 0 0 1-1-1zM13.5 7l3 3"/>',
+  home: '<path class="d" d="M5 10.5l5.6-4.6a2.2 2.2 0 0 1 2.8 0L19 10.5V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19z"/><path d="M3.5 11.7l7.1-5.8a2.2 2.2 0 0 1 2.8 0l7.1 5.8M5 10.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-8.5M10 20.5v-4.5a2 2 0 0 1 4 0v4.5"/>',
+  live: '<rect class="d" x="9" y="3" width="6" height="11" rx="4.5"/><rect x="9" y="3" width="6" height="11" rx="4.5"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/>',
+  stats: '<rect x="4" y="12" width="4" height="8" rx="2"/><rect class="d" x="10" y="4" width="4" height="16" rx="2"/><rect x="10" y="4" width="4" height="16" rx="2"/><rect x="16" y="9" width="4" height="11" rx="2"/>',
+  gem: '<path class="d" d="M7.6 4.5h8.8a1.5 1.5 0 0 1 1.2.6l2.7 3.5a1.2 1.2 0 0 1-.05 1.5l-7.1 8.6a1.5 1.5 0 0 1-2.3 0L3.75 10.1a1.2 1.2 0 0 1-.05-1.5l2.7-3.5a1.5 1.5 0 0 1 1.2-.6z"/><path d="M7.6 4.5h8.8a1.5 1.5 0 0 1 1.2.6l2.7 3.5a1.2 1.2 0 0 1-.05 1.5l-7.1 8.6a1.5 1.5 0 0 1-2.3 0L3.75 10.1a1.2 1.2 0 0 1-.05-1.5l2.7-3.5a1.5 1.5 0 0 1 1.2-.6zM3.6 9.3h16.8M10.3 4.5 8.7 9.3 12 18.6l3.3-9.3-1.6-4.8"/>',
+  cam: '<path class="d" d="M4 8.5A2.5 2.5 0 0 1 6.5 6H8l1.5-2h5L16 6h1.5A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H8l1.5-2h5L16 6h1.5A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.5"/>',
+  plus: '<path d="M12 5.5v13M5.5 12h13"/>',
+  usd: '<circle class="d" cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="9"/><path d="M14.6 9.3c-.5-.8-1.4-1.3-2.6-1.3-1.5 0-2.6.8-2.6 1.9 0 2.7 5.2 1.3 5.2 4.2 0 1.1-1.1 1.9-2.6 1.9-1.2 0-2.2-.5-2.7-1.3M12 6.5V8M12 16v1.5"/>',
+  clock: '<circle class="d" cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
+  user: '<circle class="d" cx="12" cy="8" r="4"/><circle cx="12" cy="8" r="4"/><path d="M4.5 20c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/>',
+  eye: '<path class="d" d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  heart: '<path class="d" d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z"/><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z"/>',
+  flame: '<path class="d" d="M12 21c-3.9 0-6.5-2.7-6.5-6.2 0-3.9 3.3-5.8 4.3-9.8 2.4 1.6 3.2 3.9 3.2 3.9s1.1-1 1.5-2.6c2.3 1.9 4 4.7 4 8.5 0 3.5-2.6 6.2-6.5 6.2z"/><path d="M12 21c-3.9 0-6.5-2.7-6.5-6.2 0-3.9 3.3-5.8 4.3-9.8 2.4 1.6 3.2 3.9 3.2 3.9s1.1-1 1.5-2.6c2.3 1.9 4 4.7 4 8.5 0 3.5-2.6 6.2-6.5 6.2zM12 21c-1.6 0-2.7-1.1-2.7-2.6 0-1.7 1.5-2.5 2.7-4.1 1.2 1.6 2.7 2.4 2.7 4.1 0 1.5-1.1 2.6-2.7 2.6z"/>',
+  trophy: '<path class="d" d="M8.5 4h7a1 1 0 0 1 1 1v4.5a4.5 4.5 0 0 1-9 0V5a1 1 0 0 1 1-1z"/><path d="M8.5 4h7a1 1 0 0 1 1 1v4.5a4.5 4.5 0 0 1-9 0V5a1 1 0 0 1 1-1zM7.5 6H5.5a2.5 2.5 0 0 0 2.4 3.6M16.5 6h2a2.5 2.5 0 0 1-2.4 3.6M12 14v3M10 17h4a1 1 0 0 1 1 .9l.3 1.6a.8.8 0 0 1-.8 1H9.5a.8.8 0 0 1-.8-1l.3-1.6a1 1 0 0 1 1-.9z"/>',
+  cal: '<rect class="d" x="3.5" y="5" width="17" height="15.5" rx="4.5"/><rect x="3.5" y="5" width="17" height="15.5" rx="4.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h.01M12 14h.01M16 14h.01"/>',
+  shield: '<path class="d" d="M11.3 3.8a2 2 0 0 1 1.4 0L18 5.7a1.5 1.5 0 0 1 1 1.4v4.4c0 4.6-3 7.9-7 9-4-1.1-7-4.4-7-9V6z"/><path d="M11.3 3.8a2 2 0 0 1 1.4 0L18 5.7a1.5 1.5 0 0 1 1 1.4v4.4c0 4.6-3 7.9-7 9-4-1.1-7-4.4-7-9V6zM9 12l2 2 4-4"/>',
+  chev: '<path d="M9.5 6l6 6-6 6"/>',
+  back: '<path d="M14.5 6 8.5 12l6 6"/>',
+  bank: '<rect class="d" x="3" y="6.5" width="18" height="13.5" rx="4.5"/><rect x="3" y="6.5" width="18" height="13.5" rx="4.5"/><path d="M6.5 6.5V6a2 2 0 0 1 2.4-2l8.6 1.6M21 11.5h-3.5a1.75 1.75 0 0 0 0 3.5H21"/>',
 }
+const NOTE = '<rect x="2.5" y="6" width="19" height="12" rx="3.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6.2 9.6h.01M17.8 14.4h.01"/>'
 const ic = k => `<svg viewBox="0 0 24 24">${IC[k]}</svg>`
 
 const TABS = [
@@ -256,6 +257,32 @@ function renderShell() {
   go(state.tab)
 }
 
+// Puxar pra atualizar: no topo da tela, arrastar pra baixo mostra um diamante girando e busca os dados de novo
+{
+  const ptr = document.createElement('div'); ptr.className = 'ptr'
+  let y0 = null, dy = 0, busy = false
+  const set = d => { ptr.style.opacity = Math.min(d / 70, 1); ptr.style.transform = `translateY(${Math.min(d * 0.5, 50)}px) scale(${0.6 + Math.min(d / 200, 0.4)}) rotate(${d * 3}deg)` }
+  addEventListener('touchstart', e => { if (scrollY <= 0 && !sheet.open && !busy && signedIn) { y0 = e.touches[0].clientY; dy = 0 } }, { passive: true })
+  addEventListener('touchmove', e => {
+    if (y0 == null) return
+    dy = Math.max(0, e.touches[0].clientY - y0)
+    if (dy > 6) { if (!ptr.isConnected) { ptr.innerHTML = ic('gem'); document.body.append(ptr) } set(dy) }
+  }, { passive: true })
+  addEventListener('touchend', async () => {
+    if (y0 == null) return
+    y0 = null
+    if (!ptr.isConnected) return
+    ptr.style.transition = 'transform .35s var(--ease), opacity .35s'
+    if (dy > 90) {
+      busy = true; set(90); ptr.classList.add('spin')
+      await Promise.all([reload(), new Promise(r => setTimeout(r, 700))])
+      ptr.classList.remove('spin'); busy = false
+    }
+    set(0)
+    setTimeout(() => { ptr.style.transition = ''; if (!busy) ptr.remove() }, 380)
+  })
+}
+
 // Parallax dos doodles do fundo: só mexe enquanto rola, e fica parado com "Reduzir movimento"
 {
   const still = matchMedia('(prefers-reduced-motion: reduce)')
@@ -289,7 +316,12 @@ async function reload(tab = state.tab) {
   if (await fetchFor(tab) && state.tab === tab) DRAW[tab](false)
 }
 
+const TAB_ORDER = ['home', 'lives', 'stats', 'rewards']
 function go(tab) {
+  const from = TAB_ORDER.indexOf(state.tab), to = TAB_ORDER.indexOf(tab)
+  const v = document.getElementById('view')
+  v.classList.remove('slide-l', 'slide-r')
+  if (from !== to) { void v.offsetWidth; v.classList.add(to > from ? 'slide-r' : 'slide-l') }
   state.tab = tab
   app.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab))
   document.getElementById('title').textContent = { home: 'E aí, Galli!', rewards: 'Recompensas', stats: 'Estatísticas' }[tab] ?? ENTITIES[tab].title
@@ -327,6 +359,11 @@ function delta(cur, before) {
   const p = (cur - before) / before * 100
   return `<em class="${p >= 0 ? 'up' : 'down'}">${p >= 0 ? '↑' : '↓'} ${int(Math.round(Math.abs(p)))}%</em>`
 }
+
+// chuva de diamantes (ou notinhas) caindo dentro do card principal
+const RAIN = [[6, 34, 14, 0], [22, 24, 11, -6], [38, 38, 17, -3], [54, 28, 12, -9], [70, 32, 15, -1], [86, 26, 10, -5], [14, 30, 16, -11], [62, 22, 13, -8], [94, 34, 18, -13], [46, 26, 12, -14]]
+const rain = shape => `<div class="floaters" aria-hidden="true">${RAIN.map(([x, sz, d, dl]) => `<svg viewBox="0 0 24 24" style="left:${x}%;width:${sz}px;height:${sz}px;animation-duration:${d}s;animation-delay:${dl}s">${shape}</svg>`).join('')}</div>`
+const GEM_LINE = () => IC.gem.replace(/<path class="d"[^>]*\/>/, '')
 
 const sec = (title, body, side = '') => `<section class="sec"><div class="sec-h"><h2>${title}</h2>${side}</div>${body}</section>`
 
@@ -409,13 +446,13 @@ function renderHome(animate) {
   const max = Math.max(...ml.map(l => Number(l.diamonds) || 0), ...recent.map(l => Number(l.diamonds) || 0), 1)
 
   view.innerHTML = `
-    <div class="feature">
+    <div class="feature hero">${rain(GEM_LINE())}
       <div class="k"><i>${ic('gem')}</i>Diamantes de ${esc(monthWord(ym))}${vs}</div>
-      <div class="ringrow"><div><div class="big num">${esc(int(gems))}</div><div class="sub">${ml.length ? `${esc(int(Math.round(gems / ml.length)))} por live${mins ? ` · ${esc(int(Math.round(gems / (mins / 60))))} por hora` : ''}` : 'Nenhuma live registrada no mês'}</div></div>${ringHtml}</div>
+      <div class="ringrow"><div><div class="big num" data-count>${esc(int(gems))}</div><div class="sub">${ml.length ? `${esc(int(Math.round(gems / ml.length)))} por live${mins ? ` · ${esc(int(Math.round(gems / (mins / 60))))} por hora` : ''}` : 'Nenhuma live registrada no mês'}</div></div>${ringHtml}</div>
       <div class="kpis"><div><span>Saldo do mês</span><b>${rate ? esc(brl0(net * rate)) : esc(usd(net))}</b></div><div><span>Lives</span><b>${ml.length}</b></div><div><span>Ao vivo</span><b>${esc(hours(mins))}</b></div></div>
       ${goalHtml}
     </div>
-    <div class="life"><span class="lg">${ic('gem')}</span><div><small>Diamantes desde nov/2023</small><b>${esc(int(life.diamonds))}</b><em>≈ ${esc(usd0(Math.round(life.usd)))}</em></div></div>
+    <div class="life"><span class="lg">${ic('trophy')}</span><div><small>Diamantes desde nov/2023</small><b>${esc(int(life.diamonds))}</b><em>≈ ${esc(usd0(Math.round(life.usd)))}</em></div></div>
     <div class="fxp">
       <div><small>${ic('usd')}${payout?.source === 'saque' ? 'Último saque' : 'Dólar estimado'}</small><b>${rate ? esc(brlRate(rate)) : '—'}</b><em>${last ? `${esc(shortDate(`${last.date}T12:00`))} · ${esc(METHOD[last.method] || 'Payoneer')}` : 'comercial − R$ 0,18'}</em></div>
       <div><small>Comercial hoje${state.rate?.source === 'Banco Central' ? ' (BC)' : ''}</small><b>${commercial ? esc(brlRate(commercial)) : '—'}</b><em>${diff != null ? `${diff >= 0 ? '−' : '+'}R$ ${esc(dec(Math.abs(diff), 2))} no saque` : commercial ? '' : 'sem conexão'}</em></div>
@@ -431,6 +468,7 @@ function renderHome(animate) {
   bindList(view)
   if (animate) reveal(view)
   view.querySelector('[data-goal]').addEventListener('click', () => openGoal(ym))
+  if (goal && gems >= goal.diamonds) setTimeout(() => celebrate(goal.diamonds, ym), animate ? 900 : 0)
   view.querySelector('[data-go-lives]').addEventListener('click', () => go('lives'))
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
 }
@@ -464,7 +502,7 @@ function openGoal(ym) {
     save.disabled = true
     const { error } = await sb.from('goals').upsert({ month: ym, diamonds }, { onConflict: 'user_id,month' })
     if (error) { save.disabled = false; return toast(/goals/.test(error.message) ? 'Falta criar a tabela de metas no Supabase (migração 004).' : 'Erro ao salvar: ' + error.message) }
-    closeSheet(); toast('Meta salva'); reload()
+    closeSheet(650); toast('Meta salva'); reload()
   })
   sheet.showModal()
   document.activeElement?.blur()
@@ -495,7 +533,7 @@ function streakCard(lives) {
   const sub = streak >= best ? 'seguidos com live · é o seu recorde!' : `seguidos com live · faltam ${best - streak} pro recorde`
   return `
     <div class="feature">
-      <div class="k"><i class="cop">${ic('flame')}</i>Sequência<em>maior: ${best} ${best === 1 ? 'dia' : 'dias'}</em></div>
+      <div class="k"><i class="cop flare">${ic('flame')}</i>Sequência<em>maior: ${best} ${best === 1 ? 'dia' : 'dias'}</em></div>
       <div class="big" style="font-size:30px">${streak} ${streak === 1 ? 'dia' : 'dias'}</div>
       <div class="sub">${sub}${liveToday ? '' : ' · hoje ainda não teve live'}</div>
       <div class="streak">${cells}</div>
@@ -538,7 +576,41 @@ const revealer = new IntersectionObserver(entries => {
   }
 }, { rootMargin: '0px 0px -6% 0px' })
 
+const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// contador subindo do zero até o valor (só na primeira vez que a tela aparece)
+function countUp(el) {
+  const txt = el.textContent, target = Number(txt.replace(/\D/g, ''))
+  if (!target || still()) return
+  const pre = txt.match(/^\D*/)[0], t0 = performance.now(), dur = 900
+  const step = t => {
+    const p = Math.min((t - t0) / dur, 1)
+    el.textContent = p < 1 ? pre + int(Math.round(target * (1 - (1 - p) ** 3))) : txt
+    if (p < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
+// meta batida: chuva de diamantes com o fundo desfocado (uma vez por mês)
+function celebrate(goal, ym) {
+  const key = `goal-party-${ym}`
+  try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1') } catch {}
+  if (still()) return toast('Meta batida! 💎')
+  const bl = document.createElement('div'); bl.className = 'blurbg'
+  const box = document.createElement('div'); box.className = 'party'
+  box.innerHTML = Array.from({ length: 34 }, () => {
+    const sz = 14 + Math.random() * 22
+    return `<svg viewBox="0 0 24 24" style="left:${Math.random() * 100}%;width:${sz}px;height:${sz}px;--dx:${(Math.random() - 0.5) * 120}px;--r:${(Math.random() - 0.5) * 720}deg;animation-duration:${2.2 + Math.random() * 1.8}s;animation-delay:${Math.random() * 1.2}s">${IC.gem}</svg>`
+  }).join('')
+  const t = document.createElement('div'); t.className = 'toastx'
+  t.innerHTML = `<b>Meta batida! 💎</b><span>${esc(int(goal))} diamantes em ${esc(monthWord(ym))}</span>`
+  document.body.append(bl, box, t)
+  setTimeout(() => { bl.classList.add('off'); setTimeout(() => { bl.remove(); box.remove(); t.remove() }, 400) }, 3800)
+}
+
 function reveal(root) {
+  root.querySelectorAll('[data-count]').forEach(countUp)
+  root.querySelectorAll('.lv .crown, .rec.new .rt svg').forEach(x => x.classList.add('wiggle'))
   root.querySelectorAll('.feature, .life, .fxp, .sec, .month, .seg, .best, .chartcard, .card, .form, .proj, .ret, .rec, .quad, .empty').forEach(el => {
     const i = [...el.parentElement.children].indexOf(el)
     el.classList.add('reveal')
@@ -671,7 +743,7 @@ function openForm(name, row, prefill) {
     const q = editing ? sb.from(e.table).update(values).eq('id', row.id) : sb.from(e.table).insert(values)
     const { error } = await q
     if (error) { save.disabled = false; return toast('Erro ao salvar: ' + error.message) }
-    closeSheet(); toast('Salvo'); reload()
+    closeSheet(650); toast('Salvo'); reload()
   })
   sheet.showModal()
   // o iPhone foca o primeiro botão ao abrir (o "Cancelar") e desenha um contorno nele
@@ -734,7 +806,16 @@ function bindImporter(form, e) {
   return apply
 }
 
-function closeSheet() {
+// botão vira um check desenhando (o formulário fecha logo depois)
+function checkmark(btn) {
+  if (!btn || still()) return
+  btn.style.minWidth = btn.offsetWidth + 'px'
+  btn.classList.add('saved')
+  btn.innerHTML = '<svg class="ok" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+}
+
+function closeSheet(delay = 0) {
+  if (delay && !still()) { checkmark(sheet.querySelector('[type=submit]')); return setTimeout(() => closeSheet(), delay) }
   sheet.classList.add('closing')
   setTimeout(() => { sheet.close(); sheet.classList.remove('closing') }, 200)
 }
@@ -885,7 +966,7 @@ function renderLives(animate) {
     const byDay = Array.from({ length: nDays }, (_, d) => sumOf(s.ls.filter(l => +l.date.slice(8) === d + 1), 'diamonds'))
     const top = Math.max(...byDay, 1)
     const W = 300, H = 110, bw = W / nDays
-    const bars = byDay.map((g, d) => g ? `<rect x="${(d * bw + bw * 0.15).toFixed(1)}" y="${(H - g / top * H).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${(g / top * H).toFixed(1)}" rx="2" fill="${g === top ? 'var(--copper)' : '#8fd3a4'}"/>` : '').join('')
+    const bars = byDay.map((g, d) => g ? `<rect style="--i:${d}" x="${(d * bw + bw * 0.15).toFixed(1)}" y="${(H - g / top * H).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${(g / top * H).toFixed(1)}" rx="2" fill="${g === top ? 'var(--copper)' : '#8fd3a4'}"/>` : '').join('')
     const realAvg = s.days ? sumOf(s.ls, 'diamonds') / s.days : 0
     const avgY = (H - realAvg / top * H).toFixed(1)
     const pName = prev ? monthWord(months[i - 1]) : ''
@@ -901,7 +982,7 @@ function renderLives(animate) {
       <div class="best"><span class="tr">${ic('trophy')}</span><div><small>Melhor live do mês · ${esc(weekday(best.date))}. ${esc(shortDate(`${best.date}T12:00`))}</small><b>${esc(best.title || fmtDate(best.date))}</b>
         <p><span>${esc(int(best.diamonds))}</span> diam.${best.duration_min ? ` · <span>${esc(int(Math.round(perHour(best))))}</span>/h` : ''}${best.new_followers != null ? ` · <span>+${esc(int(best.new_followers))}</span> seg.` : ''}</p></div></div>
       <div class="chartcard"><div class="hd"><b>Diamantes por dia</b><span>média <span class="num">${esc(int(Math.round(realAvg)))}</span></span></div>
-        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Diamantes por dia do mês">
+        <svg class="grow" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Diamantes por dia do mês">
           <line x1="0" x2="${W}" y1="${H}" y2="${H}" stroke="var(--line)"/>${bars}
           <line x1="0" x2="${W}" y1="${avgY}" y2="${avgY}" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1" opacity=".6"/>
         </svg>
@@ -1017,9 +1098,9 @@ function saldoPanel({ L, payout, rate }) {
   const r = reportData(wds)
   const seg = (name, opts, on) => `<div class="seg2" data-pick="${name}">${Object.entries(opts).map(([k, l]) => `<button type="button" data-v="${k}" aria-pressed="${k === on}">${l}</button>`).join('')}</div>`
   return `
-    <div class="feature">
+    <div class="feature hero">${rain(NOTE)}
       <div class="k"><i>${ic('usd')}</i>Saldo de ${esc(monthWord(ym))}${rate ? `<em>US$ 1 = ${esc(brlRate(rate))}</em>` : ''}</div>
-      <div class="big num">${rate ? esc(brl0(earned * rate)) : esc(usd(earned))}</div>
+      <div class="big num" data-count>${rate ? esc(brl0(earned * rate)) : esc(usd(earned))}</div>
       <div class="sub"><span class="num">${esc(usd(earned))}</span> em recompensas no mês${rate ? ' · estimado em reais' : ''}</div>
       <div class="kpis"><div><span>Nas lives</span><b>${esc(usd0(Math.round(fromLives)))}</b></div><div><span>Semanais</span><b>${esc(usd0(Math.round(earned - fromLives)))}</b></div><div><span>Já sacado</span><b>${esc(brl0(received))}</b></div></div>
     </div>
@@ -1140,8 +1221,9 @@ function bindSaldo(view, { L }) {
     if (error && /method|bank/.test(error.message)) ({ error } = await sb.from('withdrawals').insert({ amount_usd: amount, rate_brl: rate, date }))
     if (error) { btn.disabled = false; return toast('Erro ao registrar: ' + error.message) }
     state.wmonth = date.slice(0, 7)   // a lista mostra o mês do saque que acabou de entrar
+    checkmark(btn)
     toast('Saque registrado')
-    reload('rewards')
+    setTimeout(() => reload('rewards'), still() ? 0 : 700)
   })
   view.querySelectorAll('[data-withdrawal]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('Excluir este saque?')) return
