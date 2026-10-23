@@ -816,7 +816,7 @@ function checkmark(btn) {
 function closeSheet(delay = 0) {
   if (delay && !still()) { checkmark(sheet.querySelector('[type=submit]')); return setTimeout(() => closeSheet(), delay) }
   sheet.classList.add('closing')
-  setTimeout(() => { sheet.close(); sheet.classList.remove('closing') }, 200)
+  setTimeout(() => { sheet.close(); sheet.classList.remove('closing') }, still() ? 0 : 280)
 }
 sheet.addEventListener('click', ev => { if (ev.target === sheet) closeSheet() })
 sheet.addEventListener('cancel', ev => { ev.preventDefault(); closeSheet() })
