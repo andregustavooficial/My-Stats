@@ -874,7 +874,8 @@ function audienceCard(ym) {
     const d = cur - before
     return d === 0 ? '<em class="muted">=</em>' : `<em class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '↑' : '↓'} ${Math.abs(d)} pt</em>`
   }
-  const ages = Object.entries(a.ages || {}).filter(([k]) => k !== '13-17' || a.ages[k] > 0)
+  const ages = AGE_ORDER.filter(k => a.ages?.[k] != null && (k !== '13-17' || a.ages[k] > 0)).map(k => [k, a.ages[k]])
+  const countries = mergeCountries([], (a.countries || []).map(([n, v]) => [n.replace(/^(?:[A-Z][A-Za-z]{0,2}\s)+(?=[A-Z][a-z])/, ''), v]))
   const topAge = Math.max(...ages.map(([, v]) => v), 1)
   const scale = Math.max(topAge, ...Object.values(b.ages || {})) * 1.08
   const bc = Object.fromEntries(b.countries || [])
@@ -883,13 +884,13 @@ function audienceCard(ym) {
       ${a.female_pct != null ? `
       <div class="ah"><small>Gênero</small><span class="lg2"><i class="f"></i>Mulheres <i class="m"></i>Homens</span></div>
       <div class="gbar"><i style="width:${a.female_pct}%">${a.female_pct}%</i><i style="width:${a.male_pct}%">${a.male_pct}%</i></div>
-      ${b.female_pct != null ? `<div class="gcmp">${esc(pName)}: ${b.female_pct}% · ${b.male_pct}% ${a.female_pct !== b.female_pct ? `<em class="${a.female_pct > b.female_pct ? 'up' : 'down'}">${a.female_pct > b.female_pct ? '↑' : '↓'} ${Math.abs(a.female_pct - b.female_pct)} pts mulheres</em>` : ''}</div>` : ''}` : ''}
+      ${b.female_pct != null ? `<div class="gcmp">${esc(pName)}: ${b.female_pct}% · ${b.male_pct}% ${a.female_pct !== b.female_pct ? `<em class="${a.female_pct > b.female_pct ? 'up' : 'down'}">${a.female_pct > b.female_pct ? '↑' : '↓'} ${Math.abs(a.female_pct - b.female_pct)} ${Math.abs(a.female_pct - b.female_pct) === 1 ? 'pt' : 'pts'} mulheres</em>` : ''}</div>` : ''}` : ''}
       ${ages.length ? `
       <div class="ah"><small>Idade</small><span class="lg2"><i class="cur"></i>${esc(monthWord(ym).slice(0, 3))}${b.ages ? ` <i class="prv"></i>${esc(pName.slice(0, 3))}` : ''}</span></div>
       ${ages.map(([k, v]) => `<div class="ab ${v === topAge ? 'top' : ''}"><span>${k.replace('-', '–')}</span><div><i style="width:${(v / scale * 100).toFixed(1)}%"></i>${b.ages?.[k] != null ? `<u style="width:${(b.ages[k] / scale * 100).toFixed(1)}%"></u>` : ''}</div><b class="num">${v}%</b></div>`).join('')}` : ''}
-      ${a.countries?.length ? `
+      ${countries.length ? `
       <div class="ah"><small>Países</small><span class="lg2">${b.countries ? `vs. ${esc(pName)}` : ''}</span></div>
-      ${a.countries.map(([n, v]) => { const [flag, name] = COUNTRY[n] || ['', n]; return `<div class="ac"><span>${flag ? flag + ' ' : ''}${esc(name)}</span><b class="num">${v}%</b>${n === 'Others' ? '<em></em>' : pts(v, bc[n])}</div>` }).join('')}` : ''}
+      ${countries.map(([n, v]) => { const [flag, name] = COUNTRY[n] || ['', n]; return `<div class="ac"><span>${flag ? flag + ' ' : ''}${esc(name)}</span><b class="num">${v}%</b>${n === 'Others' ? '<em></em>' : pts(v, bc[n])}</div>` }).join('')}` : ''}
       <div class="afoot">${ic('cal')}${ym === today().slice(0, 7) ? `Print de ${esc(shortDate(row.updated_at))} · atualize toda semana` : `Resumo de ${esc(monthWord(ym))}`}</div>
     </div>`)
 }
@@ -898,18 +899,18 @@ function retentionCard(s, prev, ym) {
   const cur = avgOf(s.agg, 'avg_watch_sec')
   if (!cur) return ''
   // resumo do mês e média das lives medem de jeitos diferentes: só compara igual com igual
-  const same = prev && prev.fromSummary === s.fromSummary
-  const before = same ? avgOf(prev.agg, 'avg_watch_sec') : 0
-  const d = before ? Math.round(cur - before) : null
+  const before = prev ? avgOf(prev.agg, 'avg_watch_sec') : 0
+  const mixed = prev && before && prev.fromSummary !== s.fromSummary
+  const d = before && !mixed ? Math.round(cur - before) : null
   const pName = monthWord(prevYm(ym))
   const top = Math.max(cur, before) * 1.15
-  const bar = (label, v, on) => `<div class="rb ${on ? 'cur' : ''}"><span>${esc(label)}</span><i><i style="width:${(v / top * 100).toFixed(1)}%"></i></i><b>${Math.round(v)} s</b></div>`
-  const peak = avgOf(s.agg, 'peak_viewers'), pPeak = same ? avgOf(prev.agg, 'peak_viewers') : 0
+  const bar = (label, v, on) => `<div class="rb ${on ? 'cur' : ''}"><span>${esc(label)}</span><i><i style="width:${(v / top * 100).toFixed(1)}%"></i></i><b>${Math.round(v)}s</b></div>`
+  const peak = avgOf(s.agg, 'peak_viewers'), pPeak = prev && !mixed ? avgOf(prev.agg, 'peak_viewers') : 0
   return sec('Retenção', `
     <div class="ret">
-      <div class="rh"><div><small>Tempo médio assistido</small><b>${Math.round(cur)} s</b></div>${d != null ? `<em class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '↑' : '↓'} ${Math.abs(d)} s vs. ${esc(pName)}</em>` : ''}</div>
+      <div class="rh"><div><small>Tempo médio assistido</small><b>${Math.round(cur)}s</b></div>${d != null ? `<em class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '↑' : '↓'} ${Math.abs(d)} s vs. ${esc(pName)}</em>` : ''}</div>
       ${before ? bar(pName, before, false) : ''}${bar(monthWord(ym), cur, true)}
-      ${s.fromSummary ? '<p class="muted small">Do resumo do mês do TikTok, que calcula o tempo médio de outro jeito que a média das lives.</p>' : ''}
+      ${mixed ? `<p class="muted small">${esc(cap(monthWord(s.fromSummary ? ym : prevYm(ym))))} vem do resumo do mês do TikTok, que mede o tempo médio de um jeito diferente da média das lives.</p>` : s.fromSummary ? '<p class="muted small">Do resumo do mês do TikTok.</p>' : ''}
       ${peak ? `<div class="row"><span>Pico médio por live</span><b class="num">${esc(int(Math.round(peak)))}${pPeak ? ` <span class="muted">(${esc(pName.slice(0, 3))}.: ${esc(int(Math.round(pPeak)))})</span>` : ''}</b></div>` : ''}
     </div>`)
 }
@@ -1435,12 +1436,20 @@ const MONTH_FIELDS = [
   ['peak_viewers', 'Pico simultâneo'], ['avg_viewers', 'Média simultânea'], ['gifters', 'Presenteadores'],
   ['new_followers', 'Novos seguidores'], ['comments', 'Comentários'], ['shares', 'Compartilhamentos'], ['likes', 'Curtidas'],
 ]
+// países de vários prints (a tela rola): o mais novo vale; "Outros" sempre por último
+function mergeCountries(a = [], b = []) {
+  const m = new Map(a)
+  for (const [k, v] of b) m.set(k, v)
+  return [...m].sort((x, y) => (x[0] === 'Others') - (y[0] === 'Others') || y[1] - x[1])
+}
+const AGE_ORDER = ['13-17', '18-24', '25-34', '35-44', '45-54', '55+']
+
 function showMonth(result, texts) {
   const parsed = texts.map(t => parseMonth(t))
   const data = {}
   for (const p of parsed) for (const [k, v] of Object.entries(p)) {
     if (k === 'ages') data.ages = { ...data.ages, ...v }   // vários prints da mesma tela rolada se completam
-    else if (k === 'countries') { if (!data.countries || v.length > data.countries.length) data.countries = v }
+    else if (k === 'countries') data.countries = mergeCountries(data.countries, v)
     else if (k !== 'month') data[k] = v
   }
   fixMonth(data)
@@ -1465,7 +1474,7 @@ function showMonth(result, texts) {
     const ym = form.month.value
     // junta com o que já tinha do mês (ex.: números num dia, público no outro); o print novo substitui o antigo
     const before = summaryOf(ym) || {}
-    const merged = { ...before, ...data, ...(data.ages ? { ages: { ...before.ages, ...data.ages } } : {}) }
+    const merged = { ...before, ...data, ...(data.ages ? { ages: { ...before.ages, ...data.ages } } : {}), ...(data.countries ? { countries: mergeCountries(before.countries, data.countries) } : {}) }
     const { error } = await sb.from('month_summaries').upsert({ month: ym, data: merged, updated_at: new Date().toISOString() }, { onConflict: 'user_id,month' })
     if (error) {
       btn.disabled = false
