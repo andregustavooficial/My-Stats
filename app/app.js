@@ -360,6 +360,9 @@ const RAIN = [[6, 34, 14, 0], [22, 24, 11, -6], [38, 38, 17, -3], [54, 28, 12, -
 const rain = shape => `<div class="floaters" aria-hidden="true">${RAIN.map(([x, sz, d, dl]) => `<svg viewBox="0 0 24 24" style="left:${x}%;width:${sz}px;height:${sz}px;animation-duration:${d}s;animation-delay:${dl}s">${shape}</svg>`).join('')}</div>`
 const GEM_LINE = () => IC.gem.replace(/<path class="d"[^>]*\/>/, '')
 
+// seletores com "polegar" que desliza: --n opções, --i a escolhida
+const slideTo = (el, i) => { if (el) requestAnimationFrame(() => requestAnimationFrame(() => el.style.setProperty('--i', i))) }
+
 const sec = (title, body, side = '') => `<section class="sec"><div class="sec-h"><h2>${title}</h2>${side}</div>${body}</section>`
 
 const ring = (pct, big, label) => `<div class="ring"><svg viewBox="0 0 84 84"><circle class="bg" cx="42" cy="42" r="36"/><circle class="fg" cx="42" cy="42" r="36" pathLength="100" stroke-dasharray="${Math.min(Math.max(pct, 0), 100).toFixed(1)} 100"/></svg><div><b>${big}</b><span>${label}</span></div></div>`
@@ -939,6 +942,7 @@ function recordsCard(lives) {
 
 const perHour = l => (l.duration_min ? (Number(l.diamonds) || 0) / (l.duration_min / 60) : 0)
 
+const LSORT = ['data', 'diamantes', 'hora']
 function renderLives(animate) {
   const view = document.getElementById('view')
   const { lives } = state.data
@@ -985,7 +989,7 @@ function renderLives(animate) {
         <div class="axis"><span>1</span><span>8</span><span>15</span><span>22</span><span>${nDays}</span></div></div>
       <section class="sec">
         <div class="sort-row"><h2>Lives</h2>
-          <div class="pillbar" role="group" aria-label="Ordenar">${[['data', 'Data'], ['diamantes', 'Diamantes'], ['hora', 'Por hora']].map(([k, l]) =>
+          <div class="pillbar slider" role="group" aria-label="Ordenar" style="--n:3;--i:${state.lsortPrev ?? LSORT.indexOf(state.lsort)}">${[['data', 'Data'], ['diamantes', 'Diamantes'], ['hora', 'Por hora']].map(([k, l]) =>
             `<button type="button" data-lsort="${k}" aria-pressed="${state.lsort === k}">${l}</button>`).join('')}</div>
         </div>
         <div class="group">${sorted.map(l => lvRow(l, max, best.id)).join('')}</div>
@@ -999,7 +1003,8 @@ function renderLives(animate) {
     state.lmonth = months[i + Number(b.dataset.month)]
     renderLives()
   }))
-  view.querySelectorAll('[data-lsort]').forEach(b => b.addEventListener('click', () => { state.lsort = b.dataset.lsort; renderLives() }))
+  slideTo(view.querySelector('.pillbar.slider'), LSORT.indexOf(state.lsort)); state.lsortPrev = null
+  view.querySelectorAll('[data-lsort]').forEach(b => b.addEventListener('click', () => { state.lsortPrev = LSORT.indexOf(state.lsort); state.lsort = b.dataset.lsort; renderLives() }))
   bindList(view)
   if (animate) reveal(view)
 }
@@ -1059,15 +1064,17 @@ function renderRewards(animate) {
   const payout = payoutRate(state.data.withdrawals, state.rate?.commercial)
   const ctx = { L, payout, rate: payout?.rate }
   view.innerHTML = `
-    <div class="seg" role="tablist">${Object.entries(SUB_TABS).map(([id, label]) =>
+    <div class="seg slider" role="tablist" style="--n:4;--i:${state.rtabPrev ?? Object.keys(SUB_TABS).indexOf(state.rtab)}">${Object.entries(SUB_TABS).map(([id, label]) =>
       `<button role="tab" data-rtab="${id}" aria-selected="${state.rtab === id}">${label}</button>`).join('')}</div>
     <div id="rpanel" class="panel">${{ saldo: saldoPanel, missoes: missoesPanel, limite: limitePanel, regras: regrasPanel }[state.rtab](ctx)}</div>`
   view.querySelector('.seg').addEventListener('click', ev => {
     const b = ev.target.closest('[data-rtab]')
     if (!b || b.dataset.rtab === state.rtab) return
+    state.rtabPrev = Object.keys(SUB_TABS).indexOf(state.rtab)
     state.rtab = b.dataset.rtab
     renderRewards(true)
   })
+  slideTo(view.querySelector('.seg.slider'), Object.keys(SUB_TABS).indexOf(state.rtab)); state.rtabPrev = null
   ;({ saldo: bindSaldo, missoes: bindMissoes, limite: bindLimite, regras: () => {} })[state.rtab](view, ctx)
   if (animate) reveal(view)
 }
@@ -1092,7 +1099,7 @@ function saldoPanel({ L, payout, rate }) {
     ...state.data.lives.filter(l => l.rewards_usd != null).slice(0, 5).map(l => ({ when: new Date(`${l.date}T12:00`), label: `Live · ${shortDate(`${l.date}T12:00`)}`, usd: l.rewards_usd })),
   ].sort((a, b) => b.when - a.when).slice(0, 6)
   const r = reportData(wds)
-  const seg = (name, opts, on) => `<div class="seg2" data-pick="${name}">${Object.entries(opts).map(([k, l]) => `<button type="button" data-v="${k}" aria-pressed="${k === on}">${l}</button>`).join('')}</div>`
+  const seg = (name, opts, on) => `<div class="seg2 slider" data-pick="${name}" style="--n:2;--i:${Object.keys(opts).indexOf(on)}">${Object.entries(opts).map(([k, l]) => `<button type="button" data-v="${k}" aria-pressed="${k === on}">${l}</button>`).join('')}</div>`
   return `
     <div class="feature hero">${rain(NOTE)}
       <div class="k"><i>${ic('usd')}</i>Saldo de ${esc(monthWord(ym))}${rate ? `<em>US$ 1 = ${esc(brlRate(rate))}</em>` : ''}</div>
@@ -1194,6 +1201,7 @@ function bindSaldo(view, { L }) {
     const b = ev.target.closest('[data-v]')
     if (!b) return
     g.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', x === b))
+    g.style.setProperty('--i', [...g.querySelectorAll('[data-v]')].indexOf(b))
     form[g.dataset.pick].value = b.dataset.v
     if (g.dataset.pick === 'method') view.querySelector('#w-rate-lbl').textContent = b.dataset.v === 'pix' ? 'Cotação do Pix' : 'Dólar no Payoneer'
     calc()
