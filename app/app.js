@@ -300,7 +300,7 @@ function renderShell() {
 }
 
 // O que cada aba precisa do banco
-const NEEDS = { home: ['lives', 'withdrawals', 'goals'], lives: ['lives', 'summaries'], stats: ['lives', 'withdrawals', 'summaries'], rewards: ['lives', 'withdrawals', 'snapshots'] }
+const NEEDS = { home: ['lives', 'withdrawals', 'goals'], lives: ['lives', 'summaries'], stats: ['lives', 'withdrawals', 'summaries'], rewards: ['lives', 'withdrawals', 'snapshots', 'summaries'] }
 const DRAW = { home: a => renderHome(a), lives: a => renderLives(a), stats: a => renderStats(a), rewards: a => renderRewards(a) }
 
 async function fetchFor(tab) {
@@ -1186,7 +1186,7 @@ function bindSaldo(view, { L }) {
     const rate = num(form.rate.value)
     const pix = form.method.value === 'pix'
     view.querySelector('#w-total').textContent = brl(Math.max(amount - WITHDRAW_FEE_USD, 0) * rate)
-    const limit = Number(state.data.settings.daily_limit_usd)
+    const limit = currentLimit().usd
     view.querySelector('#w-warn').textContent =
       amount && amount < 9 ? 'O saque mínimo é US$ 9.'
       : pix && !amount ? 'Pelo Pix o saque mínimo é US$ 9'
@@ -1300,26 +1300,35 @@ function bindMissoes(view, { L, rate }) {
   })
 }
 
+// Limite deste mês, pelas regras: sai do ganho do mês passado na tabela do TikTok.
+// O ganho do mês passado vem das lives e semanais registrados ou do resumo do mês, o que for maior.
+// Sem nenhum dado do mês passado, usa o último limite salvo.
+function currentLimit() {
+  const prev = prevYm(today().slice(0, 7))
+  const earned = Math.max(monthEarned(state.data, prev), Number(summaryOf(prev)?.rewards_usd) || 0)
+  return earned > 0 ? { usd: limitFor(earned).tier[1], earned, auto: true } : { usd: Number(state.data.settings?.daily_limit_usd) || 100, earned: 0, auto: false }
+}
+
 function limitePanel() {
   const month = today().slice(0, 7)
   const earned = monthEarned(state.data, month)
   const { tier, next } = limitFor(earned)
-  const current = Number(state.data.settings.daily_limit_usd)
+  const lim = currentLimit()
+  const current = lim.usd
+  const prevName = monthWord(prevYm(month))
   const nextName = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('pt-BR', { month: 'long' })
-  const progress = next ? (earned - tier[0]) / (next[0] - tier[0]) : 1
+  const progress = next ? earned / next[0] : 1
   return `
     <div class="feature">
       <div class="k"><i>${ic('shield')}</i>Limite de saque por dia<em>este mês</em></div>
       <div class="big num">${esc(usd0(current))}</div>
-      <form class="inline-edit" id="lim-form">
-        <input name="limit" type="number" inputmode="numeric" min="0" step="1" value="${current}" aria-label="Limite de saque deste mês">
-        <button type="submit">Corrigir</button>
-      </form>
+      <div class="sub">${lim.auto ? `pelo ganho de ${esc(prevName)}: <span class="num">${esc(usd(lim.earned))}</span>` : 'sem dados do mês passado: último limite salvo'}</div>
     </div>
     <div class="card">
       <div class="row"><span>Limite de ${esc(nextName)}</span><i class="pill ${tier[1] >= current ? 'ok' : 'down'}">${esc(usd0(tier[1]))} por dia</i></div>
       <div class="row"><span>Ganho neste mês (estimado)</span><b class="num">${esc(usd(earned))}</b></div>
-      <div class="track" style="background:var(--s2);margin-top:0"><i style="transform:scaleX(${Math.min(Math.max(progress, 0), 1)});background:linear-gradient(90deg,var(--p1),var(--accent-2))"></i></div>
+      ${next ? `<div class="row" style="font-size:12px"><span>Rumo aos ${esc(usd0(next[0]))}</span><b class="num">${esc(int(Math.round(progress * 100)))}%</b></div>` : ''}
+      <div class="track" style="background:var(--s2);margin-top:-6px"><i style="transform:scaleX(${Math.min(Math.max(progress, 0), 1)});background:linear-gradient(90deg,var(--p1),var(--accent-2))"></i></div>
       <p class="muted small">${next ? `Faltam <b class="num">${esc(usd(next[0] - earned))}</b> este mês para o limite de ${esc(nextName)} subir para ${esc(usd0(next[1]))} por dia.` : 'Você está na faixa mais alta.'} Conta as recompensas das lives registradas e os semanais que já caíram.</p>
     </div>
     ${sec('Tabela do TikTok', `<div class="card">
@@ -1330,17 +1339,7 @@ function limitePanel() {
       </table></div>`)}`
 }
 
-function bindLimite(view) {
-  view.querySelector('#lim-form').addEventListener('submit', async ev => {
-    ev.preventDefault()
-    const value = Number(ev.target.limit.value)
-    if (!(value > 0)) return
-    const { error } = await sb.from('settings').upsert({ daily_limit_usd: value }, { onConflict: 'user_id' })
-    if (error) return toast('Erro ao salvar: ' + error.message)
-    toast('Limite salvo')
-    reload('rewards')
-  })
-}
+function bindLimite() {}
 
 function regrasPanel() {
   const table = rows => `<table><tbody>${rows.map(([a, b, tone]) => `<tr><td>${a}</td><td${tone ? ` class="${tone}"` : ''}>${b}</td></tr>`).join('')}</tbody></table>`
