@@ -1,5 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
-import { parseTikTok, parseWeekly, isWeeklyPrint } from './tiktok.js?v=__V__'
+import { parseTikTok, parseWeekly, isWeeklyPrint, isMonthPrint, parseMonth } from './tiktok.js?v=__V__'
 import { readEach } from './ocr.js?v=__V__'
 import { WITHDRAW_FEE_USD, livePct, daysPct, weekStartOf, weekEndOf, weekDays, payoutRate, ledger, monthEarned, limitFor, LIMIT_TIERS, lifetime } from './rewards.js?v=__V__'
 
@@ -110,6 +110,7 @@ const ENTITIES = {
 // Tabelas usadas só pela aba Recompensas (sem formulário genérico)
 ENTITIES.withdrawals = { table: 'withdrawals', order: ['created_at', false] }
 ENTITIES.snapshots = { table: 'reward_snapshots', order: ['taken_at', false] }
+ENTITIES.summaries = { table: 'month_summaries', order: ['month', false], optional: true }   // resumo do mês (migração 005)
 ENTITIES.goals = { table: 'goals', order: ['month', false], optional: true }   // meta de diamantes do mês (migração 004)
 
 // Ícones (traço) usados nas telas
@@ -272,7 +273,7 @@ function renderShell() {
 }
 
 // O que cada aba precisa do banco
-const NEEDS = { home: ['lives', 'withdrawals', 'goals'], lives: ['lives'], stats: ['lives', 'withdrawals'], rewards: ['lives', 'withdrawals', 'snapshots'] }
+const NEEDS = { home: ['lives', 'withdrawals', 'goals'], lives: ['lives', 'summaries'], stats: ['lives', 'withdrawals', 'summaries'], rewards: ['lives', 'withdrawals', 'snapshots'] }
 const DRAW = { home: a => renderHome(a), lives: a => renderLives(a), stats: a => renderStats(a), rewards: a => renderRewards(a) }
 
 async function fetchFor(tab) {
@@ -502,7 +503,7 @@ function streakCard(lives) {
 }
 
 // Projeção (mês atual) ou como o mês fechou (meses passados)
-function projCard(ml, rate, ym, current) {
+function projCard(ml, rate, ym, current, nLives) {
   const gems = sumOf(ml, 'diamonds')
   if (!gems) return ''
   const now = new Date()
@@ -513,7 +514,7 @@ function projCard(ml, rate, ym, current) {
   const next = monthWord(ymOf(new Date(y, m, 15))).slice(0, 3)
   return sec(current ? 'Projeção' : 'Fechamento', `
     <div class="proj">
-      <div class="pc"><small>${esc(cap(monthWord(ym)))} ${current ? 'deve fechar com' : 'fechou com'}</small><b>${esc(compact(total))}</b><span>${current ? `no ritmo de hoje · dia ${now.getDate()} de ${nDays}` : `${ml.length} ${ml.length === 1 ? 'live' : 'lives'} · ${esc(int(gems))} diamantes`}</span></div>
+      <div class="pc"><small>${esc(cap(monthWord(ym)))} ${current ? 'deve fechar com' : 'fechou com'}</small><b>${esc(compact(total))}</b><span>${current ? `no ritmo de hoje · dia ${now.getDate()} de ${nDays}` : `${nLives != null ? `${nLives} ${nLives === 1 ? 'live' : 'lives'} · ` : 'resumo do TikTok · '}${esc(int(gems))} diamantes`}</span></div>
       <div class="pk"><div><span>Em dólares</span><b>${esc(usd0(Math.round(totalUsd)))}</b></div><div><span>Em reais</span><b>${rate ? esc(brl0(totalUsd * rate)) : '—'}</b></div><div><span>Limite em ${esc(next)}.</span><b>${esc(compactUsd(limitFor(totalUsd).tier[1]))}</b></div></div>
     </div>`)
 }
@@ -744,19 +745,25 @@ sheet.addEventListener('cancel', ev => { ev.preventDefault(); closeSheet() })
 
 const shortDay = d => new Date(`${d}T12:00`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
 
+// Totais do mês. Num mês que já fechou e tem o resumo do TikTok (prints do mês inteiro),
+// os totais vêm do resumo (as lives registradas podem não cobrir o mês todo); a lista continua sendo a das lives.
 function monthStats(lives, month) {
   const ls = lives.filter(l => l.date?.startsWith(month))
-  const total = k => ls.reduce((s, l) => s + (Number(l[k]) || 0), 0)
+  const sum = summaryOf(month)
+  const fromSummary = !!sum?.diamonds && month < today().slice(0, 7)
+  const agg = fromSummary ? [sum] : ls
+  const total = k => sumOf(agg, k)
   const days = new Set(ls.map(l => l.date)).size
   const gems = total('diamonds')
   const min = total('duration_min')
-  return { ls, days, gems, min, usd: total('rewards_usd'),
-    perDay: days ? gems / days : 0, perHour: min ? gems / (min / 60) : 0, perLive: ls.length ? gems / ls.length : 0 }
+  return { ls, agg, fromSummary, days, gems, min, usd: total('rewards_usd'),
+    perDay: fromSummary ? null : days ? gems / days : 0, perHour: min ? gems / (min / 60) : null, perLive: fromSummary ? null : ls.length ? gems / ls.length : 0 }
 }
+const summaryOf = month => (state.data.summaries || []).find(r => r.month === month)?.data
 
 function funnelCard(s, prev) {
   const f = st => {
-    const t = k => sumOf(st.ls, k)
+    const t = k => sumOf(st.agg, k)
     const views = t('views'), unique = t('unique_viewers'), gifters = t('gifters'), followers = t('new_followers'), gems = t('diamonds')
     return { views, unique, gifters, followers, tick: gifters ? gems / gifters : null }
   }
@@ -773,19 +780,55 @@ function funnelCard(s, prev) {
     ${F.tick ? `<div class="fnote">${ic('gem')}Média de <b>${esc(int(Math.round(F.tick)))}</b> diamantes por presenteador</div>` : ''}`)
 }
 
+// Seu público: gênero, idade e países do mês, comparados com o mês anterior
+const COUNTRY = { Brazil: ['🇧🇷', 'Brasil'], Philippines: ['🇵🇭', 'Filipinas'], Italy: ['🇮🇹', 'Itália'], 'United Kingdom': ['🇬🇧', 'Reino Unido'], 'United States': ['🇺🇸', 'Estados Unidos'], Portugal: ['🇵🇹', 'Portugal'], Spain: ['🇪🇸', 'Espanha'], Mexico: ['🇲🇽', 'México'], Indonesia: ['🇮🇩', 'Indonésia'], Germany: ['🇩🇪', 'Alemanha'], France: ['🇫🇷', 'França'], Argentina: ['🇦🇷', 'Argentina'], Japan: ['🇯🇵', 'Japão'], Others: ['', 'Outros'] }
+function audienceCard(ym) {
+  const row = (state.data.summaries || []).find(r => r.month === ym)
+  const a = row?.data
+  if (!a || (a.female_pct == null && !a.ages && !a.countries)) return ''
+  const b = summaryOf(prevYm(ym)) || {}
+  const pName = monthWord(prevYm(ym))
+  const pts = (cur, before) => {
+    if (before == null || cur == null) return ''
+    const d = cur - before
+    return d === 0 ? '<em class="muted">=</em>' : `<em class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '↑' : '↓'} ${Math.abs(d)} pt</em>`
+  }
+  const ages = Object.entries(a.ages || {}).filter(([k]) => k !== '13-17' || a.ages[k] > 0)
+  const topAge = Math.max(...ages.map(([, v]) => v), 1)
+  const scale = Math.max(topAge, ...Object.values(b.ages || {})) * 1.08
+  const bc = Object.fromEntries(b.countries || [])
+  return sec('Seu público', `
+    <div class="aud">
+      ${a.female_pct != null ? `
+      <div class="ah"><small>Gênero</small><span class="lg2"><i class="f"></i>Mulheres <i class="m"></i>Homens</span></div>
+      <div class="gbar"><i style="width:${a.female_pct}%">${a.female_pct}%</i><i style="width:${a.male_pct}%">${a.male_pct}%</i></div>
+      ${b.female_pct != null ? `<div class="gcmp">${esc(pName)}: ${b.female_pct}% · ${b.male_pct}% ${a.female_pct !== b.female_pct ? `<em class="${a.female_pct > b.female_pct ? 'up' : 'down'}">${a.female_pct > b.female_pct ? '↑' : '↓'} ${Math.abs(a.female_pct - b.female_pct)} pts mulheres</em>` : ''}</div>` : ''}` : ''}
+      ${ages.length ? `
+      <div class="ah"><small>Idade</small><span class="lg2"><i class="cur"></i>${esc(monthWord(ym).slice(0, 3))}${b.ages ? ` <i class="prv"></i>${esc(pName.slice(0, 3))}` : ''}</span></div>
+      ${ages.map(([k, v]) => `<div class="ab ${v === topAge ? 'top' : ''}"><span>${k.replace('-', '–')}</span><div><i style="width:${(v / scale * 100).toFixed(1)}%"></i>${b.ages?.[k] != null ? `<u style="width:${(b.ages[k] / scale * 100).toFixed(1)}%"></u>` : ''}</div><b class="num">${v}%</b></div>`).join('')}` : ''}
+      ${a.countries?.length ? `
+      <div class="ah"><small>Países</small><span class="lg2">${b.countries ? `vs. ${esc(pName)}` : ''}</span></div>
+      ${a.countries.map(([n, v]) => { const [flag, name] = COUNTRY[n] || ['', n]; return `<div class="ac"><span>${flag ? flag + ' ' : ''}${esc(name)}</span><b class="num">${v}%</b>${n === 'Others' ? '<em></em>' : pts(v, bc[n])}</div>` }).join('')}` : ''}
+      <div class="afoot">${ic('cal')}${ym === today().slice(0, 7) ? `Print de ${esc(shortDate(row.updated_at))} · atualize toda semana` : `Resumo de ${esc(monthWord(ym))}`}</div>
+    </div>`)
+}
+
 function retentionCard(s, prev, ym) {
-  const cur = avgOf(s.ls, 'avg_watch_sec')
+  const cur = avgOf(s.agg, 'avg_watch_sec')
   if (!cur) return ''
-  const before = prev ? avgOf(prev.ls, 'avg_watch_sec') : 0
+  // resumo do mês e média das lives medem de jeitos diferentes: só compara igual com igual
+  const same = prev && prev.fromSummary === s.fromSummary
+  const before = same ? avgOf(prev.agg, 'avg_watch_sec') : 0
   const d = before ? Math.round(cur - before) : null
   const pName = monthWord(prevYm(ym))
   const top = Math.max(cur, before) * 1.15
   const bar = (label, v, on) => `<div class="rb ${on ? 'cur' : ''}"><span>${esc(label)}</span><i><i style="width:${(v / top * 100).toFixed(1)}%"></i></i><b>${Math.round(v)} s</b></div>`
-  const peak = avgOf(s.ls, 'peak_viewers'), pPeak = prev ? avgOf(prev.ls, 'peak_viewers') : 0
+  const peak = avgOf(s.agg, 'peak_viewers'), pPeak = same ? avgOf(prev.agg, 'peak_viewers') : 0
   return sec('Retenção', `
     <div class="ret">
       <div class="rh"><div><small>Tempo médio assistido</small><b>${Math.round(cur)} s</b></div>${d != null ? `<em class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '↑' : '↓'} ${Math.abs(d)} s vs. ${esc(pName)}</em>` : ''}</div>
       ${before ? bar(pName, before, false) : ''}${bar(monthWord(ym), cur, true)}
+      ${s.fromSummary ? '<p class="muted small">Do resumo do mês do TikTok, que calcula o tempo médio de outro jeito que a média das lives.</p>' : ''}
       ${peak ? `<div class="row"><span>Pico médio por live</span><b class="num">${esc(int(Math.round(peak)))}${pPeak ? ` <span class="muted">(${esc(pName.slice(0, 3))}.: ${esc(int(Math.round(pPeak)))})</span>` : ''}</b></div>` : ''}
     </div>`)
 }
@@ -794,6 +837,7 @@ function recordsCard(lives) {
   const top = k => lives.filter(l => Number(l[k]) > 0).reduce((a, l) => (!a || Number(l[k]) > Number(a[k]) ? l : a), null)
   const byMonth = {}
   for (const l of lives) if (l.date) byMonth[l.date.slice(0, 7)] = (byMonth[l.date.slice(0, 7)] || 0) + (Number(l.diamonds) || 0)
+  for (const r of state.data.summaries || []) if (r.data?.diamonds) byMonth[r.month] = Math.max(byMonth[r.month] || 0, r.data.diamonds)
   const bestMonth = Object.entries(byMonth).sort((a, b) => b[1] - a[1])[0]
   const days = [...new Set(lives.map(l => l.date).filter(Boolean))].sort()
   let best = 0, run = 0, bestEnd = null
@@ -842,20 +886,21 @@ function renderLives(animate) {
     const top = Math.max(...byDay, 1)
     const W = 300, H = 110, bw = W / nDays
     const bars = byDay.map((g, d) => g ? `<rect x="${(d * bw + bw * 0.15).toFixed(1)}" y="${(H - g / top * H).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${(g / top * H).toFixed(1)}" rx="2" fill="${g === top ? 'var(--copper)' : '#8fd3a4'}"/>` : '').join('')
-    const avgY = (H - s.perDay / top * H).toFixed(1)
+    const realAvg = s.days ? sumOf(s.ls, 'diamonds') / s.days : 0
+    const avgY = (H - realAvg / top * H).toFixed(1)
     const pName = prev ? monthWord(months[i - 1]) : ''
     body = `
       ${sec(prev ? `Comparado a ${esc(pName)}` : 'O mês', `<div class="quad">
         ${qcell('gem', 'Diamantes', compact(s.gems), delta(s.gems, prev?.gems))}
         ${qcell('usd', 'Recompensas', s.usd >= 1e4 ? `US$ ${dec(s.usd / 1e3)} mil` : usd0(Math.round(s.usd)), delta(s.usd, prev?.usd), '', true)}
-        ${qcell('cal', 'Por dia de live', int(Math.round(s.perDay)), delta(s.perDay, prev?.perDay))}
-        ${qcell('clock', 'Por hora', int(Math.round(s.perHour)), delta(s.perHour, prev?.perHour))}
-        ${qcell('live', 'Por live', int(Math.round(s.perLive)), delta(s.perLive, prev?.perLive))}
+        ${qcell('cal', 'Por dia de live', s.perDay == null ? '—' : int(Math.round(s.perDay)), delta(s.perDay, prev?.perDay))}
+        ${qcell('clock', 'Por hora', s.perHour == null ? '—' : int(Math.round(s.perHour)), delta(s.perHour, prev?.perHour))}
+        ${qcell('live', 'Por live', s.perLive == null ? '—' : int(Math.round(s.perLive)), delta(s.perLive, prev?.perLive))}
         ${qcell('clock', 'Ao vivo', hours(s.min), delta(s.min, prev?.min))}
       </div>`)}
       <div class="best"><span class="tr">${ic('trophy')}</span><div><small>Melhor live do mês · ${esc(weekday(best.date))}. ${esc(shortDate(`${best.date}T12:00`))}</small><b>${esc(best.title || fmtDate(best.date))}</b>
         <p><span>${esc(int(best.diamonds))}</span> diam.${best.duration_min ? ` · <span>${esc(int(Math.round(perHour(best))))}</span>/h` : ''}${best.new_followers != null ? ` · <span>+${esc(int(best.new_followers))}</span> seg.` : ''}</p></div></div>
-      <div class="chartcard"><div class="hd"><b>Diamantes por dia</b><span>média <span class="num">${esc(int(Math.round(s.perDay)))}</span></span></div>
+      <div class="chartcard"><div class="hd"><b>Diamantes por dia</b><span>média <span class="num">${esc(int(Math.round(realAvg)))}</span></span></div>
         <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Diamantes por dia do mês">
           <line x1="0" x2="${W}" y1="${H}" y2="${H}" stroke="var(--line)"/>${bars}
           <line x1="0" x2="${W}" y1="${avgY}" y2="${avgY}" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1" opacity=".6"/>
@@ -896,8 +941,9 @@ function renderStats(animate) {
   const rate = payoutRate(withdrawals, state.rate?.commercial)?.rate ?? null
   const parts = [
     streakCard(lives),
-    projCard(s.ls, rate, state.smonth, state.smonth === current),
+    projCard(s.agg, rate, state.smonth, state.smonth === current, s.fromSummary ? null : s.ls.length),
     funnelCard(s, prev),
+    audienceCard(state.smonth),
     retentionCard(s, prev, state.smonth),
     recordsCard(lives),
   ].filter(Boolean)
@@ -1256,6 +1302,7 @@ function openPrints() {
       <div id="prints-result"></div>
       <ol class="routine">
         <li><b>Depois de cada live</b><span>3 prints da análise da live: Viewership, Engagement e Rewards.</span><em>registra a live</em></li>
+        <li><b>Toda semana e no fim do mês</b><span>LIVE Analytics → Overview (Custom, o mês inteiro): Key metrics e Viewer insights.</span><em>resumo e público do mês</em></li>
         <li><b>Domingo à noite</b><span>1 print: Content rewards → Upcoming rewards (a tela das missões).</span><em>atualiza saldo, semanal e liga</em></li>
         <li><b>Quando sacar</b><span>Sem print: Recompensas → Saldo → Registrar saque.</span><em>registra o saque</em></li>
       </ol>
@@ -1272,11 +1319,13 @@ function openPrints() {
     try {
       const texts = await readEach([...input.files], msg => { status.textContent = msg })
       const weekly = texts.filter(isWeeklyPrint)
-      const live = texts.filter(t => !isWeeklyPrint(t)).join('\n')
+      const monthly = texts.filter(t => !isWeeklyPrint(t) && isMonthPrint(t))
+      const live = texts.filter(t => !isWeeklyPrint(t) && !isMonthPrint(t)).join('\n')
       const liveData = live.trim() ? parseTikTok(live) : {}
       const liveFields = Object.keys(liveData).length
       status.textContent = ''
       if (weekly.length) showWeekly(result, weekly)
+      if (monthly.length) showMonth(result, monthly)
       if (liveFields) {
         result.insertAdjacentHTML('beforeend', `
           <div class="card"><div class="row"><b>Live${liveData.date ? ` de ${esc(shortDate(`${liveData.date}T12:00`))}` : ''}</b><span class="muted">${liveFields} campos lidos</span></div>
@@ -1286,7 +1335,7 @@ function openPrints() {
           openForm('lives', null, live)
         })
       }
-      if (!weekly.length && !liveFields) status.textContent = 'Não reconheci esses prints. Use os da análise da live ou o de Upcoming rewards.'
+      if (!weekly.length && !monthly.length && !liveFields) status.textContent = 'Não reconheci esses prints. Use os da análise da live ou o de Upcoming rewards.'
     } catch (err) {
       status.textContent = err.message || 'Não consegui ler os prints.'
     } finally {
@@ -1296,6 +1345,54 @@ function openPrints() {
   })
   sheet.showModal()
   document.activeElement?.blur()
+}
+
+// Resumo do mês (Key metrics e Viewer insights do período inteiro): confere e salva no mês escolhido
+const MONTH_FIELDS = [
+  ['diamonds', 'Diamantes'], ['rewards_usd', 'Recompensas (US$)'], ['duration_min', 'Duração (min)'], ['views', 'Visualizações'],
+  ['unique_viewers', 'Espectadores únicos'], ['active_viewers', 'Espectadores ativos'], ['avg_watch_sec', 'Tempo médio (s)'],
+  ['peak_viewers', 'Pico simultâneo'], ['avg_viewers', 'Média simultânea'], ['gifters', 'Presenteadores'],
+  ['new_followers', 'Novos seguidores'], ['comments', 'Comentários'], ['shares', 'Compartilhamentos'], ['likes', 'Curtidas'],
+]
+function showMonth(result, texts) {
+  const parsed = texts.map(t => parseMonth(t))
+  const data = {}
+  for (const p of parsed) for (const [k, v] of Object.entries(p)) {
+    if (k === 'ages') data.ages = { ...data.ages, ...v }   // vários prints da mesma tela rolada se completam
+    else if (k === 'countries') { if (!data.countries || v.length > data.countries.length) data.countries = v }
+    else if (k !== 'month') data[k] = v
+  }
+  // prints de público não têm data: sem o gráfico do mês junto, vão para o mês atual
+  const month = parsed.find(p => p.month)?.month || today().slice(0, 7)
+  const metrics = MONTH_FIELDS.filter(([k]) => data[k] != null)
+  const aud = [data.female_pct != null && `gênero ${data.female_pct}/${data.male_pct}`, data.ages && `${Object.keys(data.ages).length} faixas de idade`, data.countries && `${data.countries.length} países`].filter(Boolean)
+  result.insertAdjacentHTML('beforeend', `
+    <form class="card" id="m-form"><h3>Resumo do mês</h3>
+      <label class="field" for="m-month"><span>Mês</span><input id="m-month" name="month" type="month" value="${month}" required></label>
+      ${metrics.length ? `<div class="fields" style="box-shadow:none;padding:0">${metrics.map(([k, l]) => `<label class="field half auto" for="m-${k}"><span>${esc(l)}</span><input id="m-${k}" name="${k}" type="text" inputmode="decimal" value="${esc(int(data[k]))}"></label>`).join('')}</div>
+      <p class="muted small">O TikTok arredonda o mês (2.6M, 4.1K). Se a leitura perdeu um ponto (41K no lugar de 4.1K), corrija aqui.</p>` : ''}
+      ${aud.length ? `<div class="row"><span>Público</span><b>${esc(aud.join(' · '))}</b></div>` : ''}
+      <button class="btn primary" type="submit">Salvar resumo</button></form>`)
+  const form = result.querySelector('#m-form')
+  form.addEventListener('submit', async ev => {
+    ev.preventDefault()
+    const btn = form.querySelector('[type=submit]')
+    if (btn.disabled) return
+    btn.disabled = true
+    for (const [k] of metrics) { const v = num(form[k].value); if (v) data[k] = v; else delete data[k] }
+    const ym = form.month.value
+    // junta com o que já tinha do mês (ex.: números num dia, público no outro); o print novo substitui o antigo
+    const before = summaryOf(ym) || {}
+    const merged = { ...before, ...data, ...(data.ages ? { ages: { ...before.ages, ...data.ages } } : {}) }
+    const { error } = await sb.from('month_summaries').upsert({ month: ym, data: merged, updated_at: new Date().toISOString() }, { onConflict: 'user_id,month' })
+    if (error) {
+      btn.disabled = false
+      return result.insertAdjacentHTML('beforeend', `<p class="small neg">Não salvou: ${esc(/month_summaries/.test(error.message) ? 'falta criar a tabela no Supabase (migração 005).' : error.message)}</p>`)
+    }
+    closeSheet()
+    toast(`Resumo de ${monthWord(ym)} salvo`)
+    reload()
+  })
 }
 
 function showWeekly(result, texts) {
