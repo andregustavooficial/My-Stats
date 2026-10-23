@@ -551,3 +551,9 @@ svg.grow rect[style] { transform-box: fill-box; transform-origin: bottom; animat
 .seg.slider::before, .pillbar.slider::before { border-radius: 999px; background: linear-gradient(135deg, var(--p1), var(--p3)); }
 .seg2.slider::before { border-radius: 9px; background: var(--card); box-shadow: 0 2px 6px rgb(15 42 32 / 0.12); }
 @media (prefers-reduced-motion: reduce) { .slider::before { transition: none; } }
+
+/* cards entrando ao rolar: sobem, crescem de leve e ganham foco, com um final macio */
+.reveal { opacity: 0; transform: translateY(26px) scale(0.965); filter: blur(4px);
+  transition: opacity 0.55s ease, transform 0.75s cubic-bezier(0.22, 1.2, 0.36, 1), filter 0.55s ease; }
+.reveal.in { opacity: 1; transform: none; filter: none; }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; filter: none; transition: none; } }

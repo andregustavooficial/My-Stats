@@ -567,12 +567,15 @@ async function freshRate() {
 // ---------- Animação ao rolar ----------
 
 const revealer = new IntersectionObserver(entries => {
-  for (const e of entries) {
+  // os que entram juntos na tela aparecem em cascata, de cima pra baixo
+  let k = 0
+  for (const e of entries.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)) {
     if (!e.isIntersecting) continue
+    e.target.style.transitionDelay = `${Math.min(k++, 6) * 70}ms`
     e.target.classList.add('in')
     revealer.unobserve(e.target)
   }
-}, { rootMargin: '0px 0px -6% 0px' })
+}, { rootMargin: '0px 0px -8% 0px' })
 
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -610,9 +613,7 @@ function reveal(root) {
   root.querySelectorAll('[data-count]').forEach(countUp)
   root.querySelectorAll('.lv .crown, .rec.new .rt svg').forEach(x => x.classList.add('wiggle'))
   root.querySelectorAll('.feature, .life, .fxp, .sec, .month, .seg, .best, .chartcard, .card, .form, .proj, .ret, .rec, .quad, .empty').forEach(el => {
-    const i = [...el.parentElement.children].indexOf(el)
     el.classList.add('reveal')
-    el.style.transitionDelay = `${Math.min(i, 5) * 50}ms`
     revealer.observe(el)
   })
 }
