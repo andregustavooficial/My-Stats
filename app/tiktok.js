@@ -218,3 +218,57 @@ export function parseWeekly(text, now = new Date()) {
   out.fans_done = /active fans[\s\S]{0,40}?completed/i.test(text) || null
   return out
 }
+
+// Resumo do mês: LIVE Analytics → Overview (período "Custom") → Key metrics e Viewer insights
+const MON_RX = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/gi
+
+export function isMonthPrint(text) {
+  if (/live analysis/i.test(text)) return false
+  if (/viewer insights|countries or regions/i.test(text)) return true
+  // o gráfico do mês tem datas no eixo ("Aug 31 ... Sep 29"); o de uma live não
+  return /key metrics/i.test(text) && [...text.matchAll(MON_RX)].length >= 2
+}
+
+// "488.9K" → 488900; "2.6M" → 2600000; "304" → 304
+const kmb = (n, u) => Math.round(Number(n.replace(',', '.')) * ({ k: 1e3, m: 1e6, b: 1e9 }[(u || '').toLowerCase()] || 1))
+
+export function parseMonth(text, now = new Date()) {
+  const out = {}
+  const dates = [...text.matchAll(MON_RX)]
+  if (dates.length) {
+    // o eixo termina no último dia com live; o mês do resumo é o dessa data
+    const m = MONTHS[dates.at(-1)[1].toLowerCase()]
+    const year = now.getFullYear() - (m > now.getMonth() + 1 ? 1 : 0)
+    out.month = `${year}-${String(m).padStart(2, '0')}`
+  }
+  const num = label => {
+    const r = text.match(new RegExp(label + '[^\\d\\n]*?(\\d[\\d.,]*)\\s?([KkMmBb])?\\b', 'i'))
+    return r ? kmb(r[1].replace(/,(?=\d{3}\b)/g, ''), r[2]) : null
+  }
+  const fields = {
+    views: '\\bviews', unique_viewers: 'unique viewers', active_viewers: 'active viewers', peak_viewers: 'peak concurrent viewers',
+    avg_viewers: 'average concurrent viewers', gifters: 'gifters', new_followers: 'new followers', comments: 'comments',
+    shares: 'shares', likes: 'likes', diamonds: '\\bdiamonds',
+  }
+  for (const [k, label] of Object.entries(fields)) { const v = num(label); if (v != null) out[k] = v }
+  const rw = text.match(/estimated rewards\s*(?:US\$|USD)\s?([\d.,]+)\s?([KkMm])?/i)
+  if (rw) out.rewards_usd = kmb(rw[1], rw[2])
+  const w = text.match(/average watch duration\s*(?:(\d+)\s?m)?\s*(\d+)\s?s/i)
+  if (w) out.avg_watch_sec = (Number(w[1]) || 0) * 60 + Number(w[2])
+  const h = text.match(/(\d+)\s?h\b[^\n]*\n?[^\n]*live duration/i)
+  if (h) out.duration_min = Number(h[1]) * 60
+
+  // Público: gênero, idade e países (em %)
+  const g = text.match(/(\d{1,3})\s?%\s+(\d{1,3})\s?%\s*\n?\s*female\s+male/i)
+  if (g) { out.female_pct = Number(g[1]); out.male_pct = Number(g[2]) }
+  const ages = {}
+  for (const r of text.matchAll(/^\s*(13-17|18-24|25-34|35-44|45-54|55\+)\s+(\d{1,3})\s?%/gm)) ages[r[1]] = Number(r[2])
+  if (Object.keys(ages).length) out.ages = ages
+  const cs = text.split(/countries or regions/i)[1]
+  if (cs) {
+    const countries = []
+    for (const r of cs.matchAll(/^[^A-Za-z\n]*(?:[A-Z][a-z]{0,2}\s)?([A-Z][A-Za-z]+(?: [A-Z][a-z]+)*)\s+(\d{1,3})\s?%/gm)) countries.push([r[1], Number(r[2])])
+    if (countries.length) out.countries = countries
+  }
+  return out
+}
