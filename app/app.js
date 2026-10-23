@@ -1,5 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
-import { parseTikTok, parseWeekly, isWeeklyPrint, isMonthPrint, parseMonth } from './tiktok.js?v=__V__'
+import { parseTikTok, parseWeekly, isWeeklyPrint, isMonthPrint, parseMonth, fixMonth } from './tiktok.js?v=__V__'
 import { readEach } from './ocr.js?v=__V__'
 import { WITHDRAW_FEE_USD, livePct, daysPct, weekStartOf, weekEndOf, weekDays, payoutRate, ledger, monthEarned, limitFor, LIMIT_TIERS, lifetime } from './rewards.js?v=__V__'
 
@@ -1362,6 +1362,7 @@ function showMonth(result, texts) {
     else if (k === 'countries') { if (!data.countries || v.length > data.countries.length) data.countries = v }
     else if (k !== 'month') data[k] = v
   }
+  fixMonth(data)
   // prints de público não têm data: sem o gráfico do mês junto, vão para o mês atual
   const month = parsed.find(p => p.month)?.month || today().slice(0, 7)
   const metrics = MONTH_FIELDS.filter(([k]) => data[k] != null)
