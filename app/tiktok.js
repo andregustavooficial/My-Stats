@@ -194,11 +194,19 @@ export function parseWeekly(text, now = new Date()) {
     const year = now.getFullYear() - (month > now.getMonth() + 2 ? 1 : 0)
     out.week_start = `${year}-${String(month).padStart(2, '0')}-${week[2].padStart(2, '0')}`
   }
-  const card = text.match(/^\s*\$\s?([\d.,]+)\D+?(\d+(?:\.\d+)?)\s?([KkMm])/m)
+  // o "$" do cartão às vezes é lido como "S", "§" ou some
+  const card = text.match(/^\s*[$S§]?\s?(\d[\d.,]*\.\d{2})\D+?(\d+(?:[.,]\d+)?)\s?([KkMm])/m)
   if (card) {
     // o valor da linha "Available/Upcoming rewards" é mais confiável (o do cartão perde o ponto: "$2551")
     out.upcoming_usd ??= money(card[1])
-    out.week_diamonds = Math.round(Number(card[2]) * (/k/i.test(card[3]) ? 1e3 : 1e6))
+    out.week_diamonds = Math.round(Number(card[2].replace(',', '.')) * (/k/i.test(card[3]) ? 1e3 : 1e6))
+  }
+  // diamantes e porcentagem do cartão ("356.9K · 11%"), lidos direto quando a linha do valor falha
+  const kp = text.match(/(\d+(?:[.,]\d+)?)\s?([KkMm])\s*[·•.,\-–]?\s*(\d{1,2}(?:[.,]\d)?)\s?%/)
+  if (kp) {
+    out.week_diamonds ??= Math.round(Number(kp[1].replace(',', '.')) * (/k/i.test(kp[2]) ? 1e3 : 1e6))
+    const p = Number(kp[3].replace(',', '.'))
+    if (p >= 6 && p <= 13) out.read_pct = p
   }
   // A porcentagem sai embaralhada na leitura; ela é o valor dividido pelos diamantes
   // O semanal vai de 6% (1 dia válido) a 13%. Se a conta sair fora disso, a leitura errou a escala dos diamantes
@@ -209,6 +217,12 @@ export function parseWeekly(text, now = new Date()) {
     if (scale) { out.week_diamonds = Math.round(out.week_diamonds * scale); out.weekly_pct = pctFor(out.week_diamonds) }
     else delete out.week_diamonds
   }
+  // sem os diamantes, mas com a porcentagem lida: os diamantes saem da conta
+  if (out.weekly_pct == null && out.read_pct && out.upcoming_usd) {
+    out.weekly_pct = out.read_pct
+    out.week_diamonds = Math.round(out.upcoming_usd / (out.read_pct / 100) / 0.01 / 100) * 100
+  }
+  delete out.read_pct
 
   const league = text.match(/\b([A-D])\s?([1-5lIi|])\s*for\s*7\s*d/i) || text.match(/l[e3]ag[uv]e\s*([A-D])\s?([1-5lIi|])\s*for/i) || text.match(/maintain league\s+([A-D])\s?([1-5lIi|])/i)
   if (league) out.league = league[1].toUpperCase() + league[2].replace(/[lIi|]/, '1')

@@ -365,7 +365,7 @@ const slideTo = (el, i) => { if (el) requestAnimationFrame(() => requestAnimatio
 
 const sec = (title, body, side = '') => `<section class="sec"><div class="sec-h"><h2>${title}</h2>${side}</div>${body}</section>`
 
-const ring = (pct, big, label) => `<div class="ring"><svg viewBox="0 0 84 84"><circle class="bg" cx="42" cy="42" r="36"/><circle class="fg" cx="42" cy="42" r="36" pathLength="100" stroke-dasharray="${Math.min(Math.max(pct, 0), 100).toFixed(1)} 100"/></svg><div><b>${big}</b><span>${label}</span></div></div>`
+const ring = (pct, big, label) => `<div class="ring"><svg viewBox="0 0 84 84"><circle class="bg" cx="42" cy="42" r="36"/><circle ${pct > 0.5 ? '' : 'hidden '}class="fg" cx="42" cy="42" r="36" pathLength="100" stroke-dasharray="${Math.min(Math.max(pct, 0), 100).toFixed(1)} 100"/></svg><div><b>${big}</b><span>${label}</span></div></div>`
 
 // parte do card dividido (nome com ícone, número, comparação e uma linha de apoio)
 const qcell = (icon, label, value, extra = '', rate = '', money = false) =>
@@ -585,7 +585,7 @@ const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 // contador subindo do zero até o valor (só na primeira vez que a tela aparece)
 function countUp(el) {
   const txt = el.textContent, target = Number(txt.replace(/\D/g, ''))
-  if (!target || still()) return
+  if (!target || still() || /,\d{2}$/.test(txt)) return
   const pre = txt.match(/^\D*/)[0], t0 = performance.now(), dur = 900
   const step = t => {
     const p = Math.min((t - t0) / dur, 1)
@@ -1263,14 +1263,14 @@ function missoesPanel({ L, rate }) {
   const snapThisWeek = L.snap && (L.snap.week_start || '') === L.current ? L.snap : null
   const last = state.data.lives[0]
   const lp = last ? livePct(last.duration_min, last.new_followers) : 0
-  const endLabel = new Date(`${days[6]}T12:00`).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '')
+  const endLabel = shortDate(`${days[6]}T12:00`)
   const letters = days.map(d => new Date(`${d}T12:00`).toLocaleDateString('pt-BR', { weekday: 'narrow' }).toUpperCase())
   const ld = snapThisWeek?.league_days ?? 0
   return `
     <div class="feature">
-      <div class="k"><i>${ic('cal')}</i>Semana de ${esc(shortDate(`${days[0]}T12:00`))} a ${esc(endLabel)}<em>${L.snap ? `${pct(L.upcoming.pct)} de 13%` : 'sem print'}</em></div>
+      <div class="k"><i>${ic('cal')}</i>Semana de ${esc(days[0].slice(8))} a ${esc(endLabel)}<em>${L.snap ? `${pct(L.upcoming.pct)} de 13%` : 'sem print'}</em></div>
       <div class="ringrow"><div><div class="big num">${L.snap ? esc(usd(L.upcoming.usd)) : '—'}</div>
-        <div class="sub">${L.snap ? `<span class="num">${esc(int(L.upcoming.gems))}</span> diamantes · ${L.upcoming.fromPrint ? 'do print de domingo' : `estimativa com ${pct(L.upcoming.pct)}`}` : 'Mande o print de Upcoming rewards'}</div></div>
+        <div class="sub">${L.snap ? `<span class="num">${esc(int(L.upcoming.gems))}</span> diamantes · ${L.upcoming.fromPrint ? `do print de ${esc(shortDate(L.snap.taken_at))}` : `estimativa com ${pct(L.upcoming.pct)}`}` : 'Mande o print de Upcoming rewards'}</div></div>
         ${L.snap ? ring(L.upcoming.pct / 13 * 100, pct(L.upcoming.pct), 'de 13%') : ''}</div>
     </div>
 
@@ -1510,12 +1510,17 @@ function showWeekly(result, texts) {
   // vários prints da mesma tela (rolada) se completam
   const data = Object.assign({}, ...texts.map(t => Object.fromEntries(Object.entries(parseWeekly(t)).filter(([, v]) => v != null))))
   data.week_start ??= weekStartOf()
+  // a leitura não achou a porcentagem: completa com a do último print da mesma semana (dá pra corrigir abaixo)
+  if (data.weekly_pct == null) {
+    const prev = (state.data.snapshots || []).find(s => s.week_start === data.week_start && Number(s.weekly_pct))
+    if (prev) data.weekly_pct = Number(prev.weekly_pct)
+    if (data.weekly_pct && data.upcoming_usd && !data.week_diamonds) data.week_diamonds = Math.round(data.upcoming_usd / (data.weekly_pct / 100) / 0.01 / 100) * 100
+  }
   const rows = [
     ['Disponível para sacar', data.available_usd != null ? usd(data.available_usd) : null],
     ['A receber da semana', data.upcoming_usd != null ? usd(data.upcoming_usd) : null],
     ['Semana', shortDate(`${data.week_start}T12:00`) + ' a ' + shortDate(new Date(weekEndOf(data.week_start) - 2 * 3600e3))],
-    ['Diamantes da semana', data.week_diamonds ? int(data.week_diamonds) : null],
-    ['Porcentagem semanal', data.weekly_pct != null ? pct(data.weekly_pct) : null],
+
     ['Liga', data.league || null],
     ['Dias válidos', data.valid_days_done ? 'concluída' : null],
     ['Fãs ativos', data.fans_done ? 'concluída' : null],
@@ -1523,6 +1528,11 @@ function showWeekly(result, texts) {
   result.insertAdjacentHTML('beforeend', `
     <div class="card"><h3>Upcoming rewards</h3>
       ${rows.map(([k, v]) => `<div class="row"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}
+      <div class="grid">
+        <label class="field" for="wk-gems"><span>Diamantes da semana</span><input id="wk-gems" type="text" inputmode="numeric" value="${data.week_diamonds ? esc(int(data.week_diamonds)) : ''}" placeholder="356.900"></label>
+        <label class="field" for="wk-pct"><span>Semanal (%)</span><input id="wk-pct" type="text" inputmode="decimal" value="${data.weekly_pct != null ? esc(String(data.weekly_pct).replace('.', ',')) : ''}" placeholder="11"></label>
+      </div>
+      ${data.weekly_pct == null ? '<p class="small neg">Não consegui ler a porcentagem: confira no print e coloque acima.</p>' : ''}
       <div class="row"><span>Dias mantidos na liga</span><b class="muted small">${data.league_days != null ? 'lido do print' : 'toque para marcar'}</b></div>
       <div class="days">${[1, 2, 3, 4, 5, 6, 7].map(d => `<button type="button" data-ld="${d}" aria-label="${d} de 7 dias">${d}</button>`).join('')}</div>
       ${data.available_usd == null ? '<p class="muted small">Não achei o saldo disponível nesse print.</p>' : ''}
@@ -1540,6 +1550,11 @@ function showWeekly(result, texts) {
   }))
   paint()
   result.querySelector('[data-save-week]').addEventListener('click', async ev => {
+    const g = num(result.querySelector('#wk-gems').value), p = num(result.querySelector('#wk-pct').value)
+    if (p && (p < 6 || p > 13)) return toast('O semanal vai de 6% a 13%')
+    data.week_diamonds = g || null
+    data.weekly_pct = p || null
+    if (data.weekly_pct && !data.week_diamonds && data.upcoming_usd) data.week_diamonds = Math.round(data.upcoming_usd / (data.weekly_pct / 100) / 0.01 / 100) * 100
     ev.target.disabled = true
     const { error } = await sb.from('reward_snapshots').insert(data)
     if (error) {
