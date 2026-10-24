@@ -52,8 +52,9 @@ export function ledger({ snapshots = [], lives = [], withdrawals = [] }, now = n
   const taken = new Date(snap.taken_at)
   const snapWeek = snap.week_start || weekStartOf(taken)
   const after = r => new Date(r.created_at) > taken
-  // uma live antiga registrada depois do print já está no saldo do print: só contam as do dia do print em diante
-  const newLive = l => after(l) && l.date >= ymd(taken)
+  // o print já traz as lives feitas até ele (inclusive a do mesmo dia, mesmo registrada depois):
+  // só somam as lives de dias depois do print. Uma live no mesmo dia, depois do print, entra no próximo print.
+  const newLive = l => after(l) && l.date > ymd(taken)
   const credited = now >= weekEndOf(snapWeek) && taken < weekEndOf(snapWeek)
 
   // o print vale até a hora em que foi tirado; lives da mesma semana registradas depois somam pela mesma porcentagem
