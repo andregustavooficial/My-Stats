@@ -58,7 +58,8 @@ export function ledger({ snapshots = [], lives = [], withdrawals = [] }, now = n
   const credited = now >= weekEndOf(snapWeek) && taken < weekEndOf(snapWeek)
 
   // o print vale até a hora em que foi tirado; lives da mesma semana registradas depois somam pela mesma porcentagem
-  const pct = Number(snap.weekly_pct) || 0
+  // print sem a porcentagem: usa a do print anterior da mesma semana
+  const pct = Number(snap.weekly_pct) || Number(snapshots.find(s => (s.week_start || weekStartOf(new Date(s.taken_at))) === snapWeek && Number(s.weekly_pct))?.weekly_pct) || 0
   const extraGems = sum(lives.filter(l => newLive(l) && l.date >= snapWeek && l.date < ymd(weekEndOf(snapWeek))), 'diamonds')
   const snapWeekUsd = (Number(snap.upcoming_usd) || 0) + extraGems * 0.01 * pct / 100
 
@@ -71,7 +72,9 @@ export function ledger({ snapshots = [], lives = [], withdrawals = [] }, now = n
 
   let upcoming
   if (snapWeek === current) {
-    upcoming = { usd: snapWeekUsd, gems: (snap.week_diamonds || 0) + extraGems, pct, fromPrint: true }
+    // sem os diamantes no print, saem do valor ÷ porcentagem
+    const printGems = Number(snap.week_diamonds) || (pct ? Math.round(Number(snap.upcoming_usd || 0) / (pct / 100) / 0.01 / 100) * 100 : 0)
+    upcoming = { usd: snapWeekUsd, gems: printGems + extraGems, pct, fromPrint: true }
   } else {
     const gems = sum(weekLives, 'diamonds')
     upcoming = { usd: gems * 0.01 * pct / 100, gems, pct, fromPrint: false }
