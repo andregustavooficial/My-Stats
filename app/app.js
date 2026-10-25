@@ -930,6 +930,109 @@ function retentionCard(s, prev, ym) {
     </div>`)
 }
 
+// ---------- Estatísticas novas ----------
+
+// a cada mil views, por espectador e quanto vale cada mil views (mês contra o anterior)
+function engagementCard(s, prev, rate) {
+  const f = st => {
+    const t = k => sumOf(st.agg, k)
+    const views = t('views'), unique = t('unique_viewers')
+    return { views, com: views ? t('comments') / views * 1000 : null, sha: views ? t('shares') / views * 1000 : null,
+      per: unique ? t('diamonds') / unique : null, mil: views && rate ? t('rewards_usd') * rate / views * 1000 : null }
+  }
+  const F = f(s)
+  if (!F.views) return ''
+  const P = prev ? f(prev) : {}
+  const cell = (icon, label, v, fmt, before, rateTxt, money) => v == null ? '' : qcell(icon, label, fmt(v), delta(v, before), rateTxt, money)
+  return sec('Engajamento e valor', `<div class="quad">
+    ${cell('heart', 'Comentários', F.com, v => dec(v, 0), P.com, 'a cada mil views')}
+    ${cell('live', 'Compartilh.', F.sha, v => dec(v, 0), P.sha, 'a cada mil views')}
+    ${cell('gem', 'Por espectador', F.per, v => dec(v, 2), P.per, 'diamantes')}
+    ${cell('usd', 'Mil views', F.mil, v => brl0(v), P.mil, 'em reais', true)}
+  </div>`, prev ? `<span>vs. ${esc(monthWord(prevYm(state.smonth)))}</span>` : '')
+}
+
+const hint = (icon, html) => `<p class="hint2">${ic(icon)}<span>${html}</span></p>`
+
+// média de diamantes por live em cada dia da semana (todas as lives)
+function weekdayCard(lives) {
+  const ls = lives.filter(l => l.date && Number(l.diamonds) > 0)
+  if (ls.length < 5) return ''
+  const names = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+  const avg = [1, 2, 3, 4, 5, 6, 0].map(d => {
+    const g = ls.filter(l => new Date(`${l.date}T12:00`).getDay() === d)
+    return { d, n: g.length, v: g.length ? sumOf(g, 'diamonds') / g.length : 0 }
+  })
+  const best = avg.reduce((a, b) => (b.v > a.v ? b : a))
+  return sec('Melhor dia da semana', `<div class="chartcard">
+    <div class="wk">${avg.map(a => `<div class="${a === best ? 'best1' : ''}"><b>${a.v ? esc(compactK(a.v)) : ''}</b><i style="height:${(a.v / best.v * 100).toFixed(1)}%"></i><span>${names[a.d][0]}</span></div>`).join('')}</div>
+    ${hint('trophy', `<b>${names[best.d]}</b> rende mais: média de <b class="num">${esc(compact(best.v))}</b> diamantes por live`)}
+  </div>`, '<span>todas as lives</span>')
+}
+const compactK = v => (v >= 1e6 ? `${dec(v / 1e6, 1)}mi` : `${int(Math.round(v / 1e3))}k`)
+
+// diamantes por hora de acordo com o tamanho da live
+function durationCard(lives) {
+  const ls = lives.filter(l => Number(l.duration_min) > 0 && Number(l.diamonds) > 0)
+  if (ls.length < 5) return ''
+  const groups = [['Até 1h', 0, 60], ['1h a 2h', 60, 120], ['2h a 3h', 120, 180], ['Mais de 3h', 180, 1e9]].map(([label, a, b]) => {
+    const g = ls.filter(l => l.duration_min > a && l.duration_min <= b)
+    const h = sumOf(g, 'duration_min') / 60
+    return { label, n: g.length, v: h ? sumOf(g, 'diamonds') / h : 0 }
+  }).filter(g => g.n)
+  const best = groups.reduce((a, b) => (b.v > a.v ? b : a))
+  return sec('Duração ideal', `<div class="chartcard">
+    ${groups.map(g => `<div class="dur ${g === best ? 'best1' : ''}"><span>${g.label}<small>${g.n} ${g.n === 1 ? 'live' : 'lives'}</small></span><div><i style="width:${(g.v / best.v * 100).toFixed(1)}%"></i></div><b class="num">${esc(dec(g.v / 1e3, 1))}k/h</b></div>`).join('')}
+    ${hint('clock', `Lives de <b>${best.label.toLowerCase()}</b> rendem mais diamantes por hora`)}
+  </div>`, '<span>todas as lives</span>')
+}
+
+// calendário do mês: quanto mais forte, mais diamantes no dia
+function calendarCard(lives, ym) {
+  const [y, m] = ym.split('-').map(Number)
+  const n = new Date(y, m, 0).getDate()
+  const byDay = Array.from({ length: n }, (_, d) => sumOf(lives.filter(l => l.date === `${ym}-${String(d + 1).padStart(2, '0')}`), 'diamonds'))
+  const top = Math.max(...byDay)
+  if (!top) return ''
+  const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7
+  const now = today()
+  return sec(`Calendário de ${esc(monthWord(ym))}`, `<div class="chartcard">
+    <div class="cal">${['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map(d => `<span class="h">${d}</span>`).join('')}${'<i class="x"></i>'.repeat(lead)}${byDay.map((v, d) => {
+      const day = `${ym}-${String(d + 1).padStart(2, '0')}`
+      return `<i class="${day > now ? 'fut' : v ? 'on' : ''}" style="--a:${v ? (0.25 + v / top * 0.75).toFixed(2) : 0}" title="${v ? esc(int(v)) : ''}"><b>${d + 1}</b></i>`
+    }).join('')}</div>
+    <div class="legend2"><span>menos</span>${[0.25, 0.45, 0.65, 0.85, 1].map(a => `<i style="--a:${a}"></i>`).join('')}<span>mais</span></div>
+  </div>`)
+}
+
+// títulos usados mais de uma vez, pela média de diamantes por live
+function titlesCard(lives) {
+  const by = new Map()
+  for (const l of lives) if (l.title && Number(l.diamonds) > 0) by.set(l.title, [...(by.get(l.title) || []), l])
+  const rows = [...by].filter(([, g]) => g.length > 1).map(([t, g]) => ({ t, n: g.length, avg: sumOf(g, 'diamonds') / g.length, best: Math.max(...g.map(l => Number(l.diamonds))) }))
+    .sort((a, b) => b.avg - a.avg).slice(0, 5)
+  if (rows.length < 2) return ''
+  return sec('Títulos campeões', `<div class="group">${rows.map((r, i) => `
+    <div class="rk"><span class="pos ${i === 0 ? 'g' : ''}">${i + 1}º</span><div class="t"><b>${esc(r.t)}</b><span>${r.n} lives · melhor <span class="num">${esc(int(r.best))}</span></span></div><b class="num">${esc(compact(r.avg))}</b></div>`).join('')}</div>`, '<span>média por live</span>')
+}
+
+// diamantes dos últimos 6 meses (até o mês escolhido); usa o resumo do TikTok quando ele é maior
+function monthsCard(lives, ym) {
+  const months = []
+  let m = ym
+  for (let i = 0; i < 6; i++) { months.unshift(m); m = prevYm(m) }
+  const vals = months.map(mm => Math.max(sumOf(lives.filter(l => l.date?.startsWith(mm)), 'diamonds'), Number(summaryOf(mm)?.diamonds) || 0))
+  const withData = vals.filter(Boolean)
+  if (withData.length < 2) return ''
+  const top = Math.max(...vals)
+  const cur = today().slice(0, 7)
+  const done = months.map((mm, i) => (mm < cur ? vals[i] : 0)).filter(Boolean)
+  return sec('Últimos 6 meses', `<div class="chartcard">
+    <div class="wk mo">${months.map((mm, i) => `<div class="${mm === cur ? 'cur' : vals[i] === top ? 'best1' : ''}"><b>${vals[i] ? esc(dec(vals[i] / 1e6, 2)) : ''}</b><i style="height:${(vals[i] / top * 100).toFixed(1)}%"></i><span>${esc(monthWord(mm).slice(0, 3))}</span></div>`).join('')}</div>
+    ${done.length ? hint('stats', `Média de <b class="num">${esc(compact(sumOf(done.map(v => ({ v })), 'v') / done.length))}</b> por mês${months.includes(cur) ? ` · ${esc(monthWord(cur))} ainda em andamento` : ''}`) : ''}
+  </div>`, '<span>milhões de diamantes</span>')
+}
+
 function recordsCard(lives) {
   const top = k => lives.filter(l => Number(l[k]) > 0).reduce((a, l) => (!a || Number(l[k]) > Number(a[k]) ? l : a), null)
   const byMonth = {}
@@ -1042,8 +1145,14 @@ function renderStats(animate) {
     streakCard(lives),
     projCard(s.agg, rate, state.smonth, state.smonth === current, s.fromSummary ? null : s.ls.length),
     funnelCard(s, prev),
+    engagementCard(s, prev, rate),
     audienceCard(state.smonth),
     retentionCard(s, prev, state.smonth),
+    weekdayCard(lives),
+    durationCard(lives),
+    calendarCard(lives, state.smonth),
+    titlesCard(lives),
+    monthsCard(lives, state.smonth),
     recordsCard(lives),
   ].filter(Boolean)
   view.innerHTML = `
