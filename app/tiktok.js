@@ -291,7 +291,7 @@ export function fixMonth(out) {
   }
   // "4.1K" lido como "41K": no número grande do TikTok o ponto some e o valor fica 10× maior.
   // Views e espectadores únicos vêm com o ponto; os outros são uma fração pequena deles: muito acima disso, era o ponto
-  const base = { unique: out.unique_viewers, views: out.views }
+  const base = { unique: out.unique_viewers || out.views * 0.9, views: out.views || out.unique_viewers }
   const cap = [['gifters', 'unique', 0.03], ['new_followers', 'unique', 0.02], ['active_viewers', 'unique', 0.08], ['comments', 'views', 0.4], ['shares', 'views', 0.06]]
   for (const [k, b, max] of cap) while (out[k] && base[b] && out[k] > base[b] * max) out[k] = Math.round(out[k] / 10)
   return out
@@ -301,8 +301,16 @@ export function parseMonth(text, now = new Date()) {
   // letras que a leitura troca por números ("S3h" = 53h, "O0m41s" = 0m41s) e o "I" de "Italy" lido como "["
   text = text.replace(/(?<![A-Za-z])S(?=\d)/g, '5').replace(/(?<![A-Za-z])[O](?=\d)/g, '0').replace(/[\[|](?=[a-z]{2})/g, 'I')
   const out = {}
+  // período escolhido no topo ("Custom · Oct 1 - Oct 29"): é ele que diz o mês e até que dia vão os números
+  const per = text.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\s*[-–—]\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/i)
   const dates = [...text.matchAll(MON_RX)]
-  if (dates.length) {
+  if (per) {
+    const m1 = MONTHS[per[1].toLowerCase()], m2 = MONTHS[per[3].toLowerCase()]
+    const year = now.getFullYear() - (m1 > now.getMonth() + 1 ? 1 : 0)
+    const ymd = (m, d) => `${year + (m < m1 ? 1 : 0)}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    out.month = ymd(m1, 1).slice(0, 7)
+    out.period = [ymd(m1, per[2]), ymd(m2, per[4])]
+  } else if (dates.length) {
     // o eixo termina no último dia com live; o mês do resumo é o dessa data
     const m = MONTHS[dates.at(-1)[1].toLowerCase()]
     const year = now.getFullYear() - (m > now.getMonth() + 1 ? 1 : 0)

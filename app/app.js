@@ -906,7 +906,7 @@ function audienceCard(ym) {
       ${countries.length ? `
       <div class="ah"><small>Países</small><span class="lg2">${b.countries ? `vs. ${esc(pName)}` : ''}</span></div>
       ${countries.map(([n, v]) => { const [flag, name] = COUNTRY[n] || ['', n]; return `<div class="ac"><span>${flag ? flag + ' ' : ''}${esc(name)}</span><b class="num">${v}%</b>${n === 'Others' ? '<em></em>' : pts(v, bc[n])}</div>` }).join('')}` : ''}
-      <div class="afoot">${ic('cal')}${ym === today().slice(0, 7) ? `Print de ${esc(shortDate(row.updated_at))} · atualize toda semana` : `Resumo de ${esc(monthWord(ym))}`}</div>
+      <div class="afoot">${ic('cal')}${a.period ? `Dados de ${esc(a.period[0].slice(8))} a ${esc(shortDate(`${a.period[1]}T12:00`))} · ` : ''}${ym === today().slice(0, 7) ? `print de ${esc(shortDate(row.updated_at))} · atualize toda semana` : `resumo de ${esc(monthWord(ym))}`}</div>
     </div>`)
 }
 
@@ -1580,16 +1580,24 @@ function showMonth(result, texts) {
   for (const p of parsed) for (const [k, v] of Object.entries(p)) {
     if (k === 'ages') data.ages = { ...data.ages, ...v }   // vários prints da mesma tela rolada se completam
     else if (k === 'countries') data.countries = mergeCountries(data.countries, v, true)
+    else if (k === 'period') data.period = v
     else if (k !== 'month') data[k] = v
   }
   fixMonth(data)
   // prints de público não têm data: sem o gráfico do mês junto, vão para o mês atual
-  const month = parsed.find(p => p.month)?.month || today().slice(0, 7)
+  // o mês sai do período do topo do print ("Oct 1 - Oct 29"); sem ele, do eixo do gráfico; sem nada, o mês atual
+  const month = parsed.find(p => p.period)?.month || parsed.find(p => p.month)?.month || today().slice(0, 7)
+  const dm = d => `${d.slice(8)}/${d.slice(5, 7)}`
+  const period = data.period ? `${dm(data.period[0])} a ${dm(data.period[1])}` : null
+  const spans = data.period && data.period[0].slice(0, 7) !== data.period[1].slice(0, 7)
   const metrics = MONTH_FIELDS.filter(([k]) => data[k] != null)
   const aud = [data.female_pct != null && `gênero ${data.female_pct}/${data.male_pct}`, data.ages && `${Object.keys(data.ages).length} faixas de idade`, data.countries && `${data.countries.length} países`].filter(Boolean)
   result.insertAdjacentHTML('beforeend', `
     <form class="card" id="m-form"><h3>Resumo do mês</h3>
       <label class="field" for="m-month"><span>Mês</span><input id="m-month" name="month" type="month" value="${month}" required></label>
+      <div class="row"><span>Período do print</span><b>${period ? esc(period) : 'não li o período'}</b></div>
+      ${spans ? '<p class="small neg">O período pega mais de um mês: no TikTok, escolha em Custom do dia 1 ao último dia do mês.</p>' : ''}
+      ${!period ? '<p class="small muted">Mande junto o print do topo do Overview (onde aparece "Custom · Oct 1 - Oct 29") pra o app saber o período.</p>' : ''}
       ${metrics.length ? `<div class="fields" style="box-shadow:none;padding:0">${metrics.map(([k, l]) => `<label class="field half auto" for="m-${k}"><span>${esc(l)}</span><input id="m-${k}" name="${k}" type="text" inputmode="decimal" value="${esc(int(data[k]))}"></label>`).join('')}</div>
       <p class="muted small">O TikTok arredonda o mês (2.6M, 4.1K). Se a leitura perdeu um ponto (41K no lugar de 4.1K), corrija aqui.</p>` : ''}
       ${aud.length ? `<div class="row"><span>Público</span><b>${esc(aud.join(' · '))}</b></div>` : ''}
