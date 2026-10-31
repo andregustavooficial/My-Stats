@@ -846,7 +846,7 @@ const shortDay = d => new Date(`${d}T12:00`).toLocaleDateString('pt-BR', { weekd
 function monthStats(lives, month) {
   const ls = lives.filter(l => l.date?.startsWith(month))
   const sum = summaryOf(month)
-  const fromSummary = !!sum?.diamonds && month < today().slice(0, 7)
+  const fromSummary = !!sum?.diamonds && sum.diamonds > sumOf(ls, 'diamonds')
   const agg = fromSummary ? [sum] : ls
   const total = k => sumOf(agg, k)
   const days = new Set(ls.map(l => l.date)).size
@@ -889,7 +889,7 @@ function audienceCard(ym) {
     const d = cur - before
     return d === 0 ? '<em class="muted">=</em>' : `<em class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '↑' : '↓'} ${Math.abs(d)} pt</em>`
   }
-  const ages = AGE_ORDER.filter(k => a.ages?.[k] != null && (k !== '13-17' || a.ages[k] > 0)).map(k => [k, a.ages[k]])
+  const ages = AGE_ORDER.filter(k => a.ages?.[k] != null && a.ages[k] <= 100 && (k !== '13-17' || a.ages[k] > 0)).map(k => [k, a.ages[k]])
   const countries = mergeCountries([], (a.countries || []).map(([n, v]) => [n.replace(/^(?:[A-Z][A-Za-z]{0,2}\s)+(?=[A-Z][a-z])/, ''), v]))
   const topAge = Math.max(...ages.map(([, v]) => v), 1)
   const scale = Math.max(topAge, ...Object.values(b.ages || {})) * 1.08
@@ -1566,8 +1566,9 @@ const MONTH_FIELDS = [
   ['new_followers', 'Novos seguidores'], ['comments', 'Comentários'], ['shares', 'Compartilhamentos'], ['likes', 'Curtidas'],
 ]
 // países de vários prints (a tela rola): o mais novo vale; "Outros" sempre por último
-function mergeCountries(a = [], b = []) {
-  const m = new Map(a)
+function mergeCountries(a = [], b = [], sameBatch = false) {
+  // entre prints da mesma vez, junta (a tela rola); um print novo que já tem "Outros" é a lista inteira e substitui a salva
+  const m = new Map(!sameBatch && b.some(([k]) => k === 'Others') ? [] : a)
   for (const [k, v] of b) m.set(k, v)
   return [...m].sort((x, y) => (x[0] === 'Others') - (y[0] === 'Others') || y[1] - x[1])
 }
@@ -1578,7 +1579,7 @@ function showMonth(result, texts) {
   const data = {}
   for (const p of parsed) for (const [k, v] of Object.entries(p)) {
     if (k === 'ages') data.ages = { ...data.ages, ...v }   // vários prints da mesma tela rolada se completam
-    else if (k === 'countries') data.countries = mergeCountries(data.countries, v)
+    else if (k === 'countries') data.countries = mergeCountries(data.countries, v, true)
     else if (k !== 'month') data[k] = v
   }
   fixMonth(data)

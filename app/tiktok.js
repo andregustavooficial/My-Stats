@@ -289,14 +289,17 @@ export function fixMonth(out) {
       out.diamonds = Math.round(g / step) * step
     }
   }
-  // "4.1K" lido como "41K": o ponto some e o número fica 10× maior. Presenteadores ficam perto dos novos seguidores
-  // e os espectadores ativos são poucos % dos únicos; muito acima disso, era o ponto
-  if (out.gifters && out.new_followers && out.gifters > out.new_followers * 6) out.gifters /= 10
-  if (out.active_viewers && out.unique_viewers && out.active_viewers > out.unique_viewers * 0.1) out.active_viewers /= 10
+  // "4.1K" lido como "41K": no número grande do TikTok o ponto some e o valor fica 10× maior.
+  // Views e espectadores únicos vêm com o ponto; os outros são uma fração pequena deles: muito acima disso, era o ponto
+  const base = { unique: out.unique_viewers, views: out.views }
+  const cap = [['gifters', 'unique', 0.03], ['new_followers', 'unique', 0.02], ['active_viewers', 'unique', 0.08], ['comments', 'views', 0.4], ['shares', 'views', 0.06]]
+  for (const [k, b, max] of cap) while (out[k] && base[b] && out[k] > base[b] * max) out[k] = Math.round(out[k] / 10)
   return out
 }
 
 export function parseMonth(text, now = new Date()) {
+  // letras que a leitura troca por números ("S3h" = 53h, "O0m41s" = 0m41s) e o "I" de "Italy" lido como "["
+  text = text.replace(/(?<![A-Za-z])S(?=\d)/g, '5').replace(/(?<![A-Za-z])[O](?=\d)/g, '0').replace(/[\[|](?=[a-z]{2})/g, 'I')
   const out = {}
   const dates = [...text.matchAll(MON_RX)]
   if (dates.length) {
@@ -328,8 +331,10 @@ export function parseMonth(text, now = new Date()) {
   if (g) { out.female_pct = Number(g[1]); out.male_pct = Number(g[2]) }
   const ages = {}
   // a leitura às vezes troca o hífen ("45—54", "4554") ou some com o "+" do 55+
-  for (const r of text.matchAll(/^\W*(13|18|25|35|45)\s*\D{0,2}\s*(17|24|34|44|54)\s+(\d{1,3})\s?%/gm)) ages[`${r[1]}-${r[2]}`] = Number(r[3])
-  for (const r of text.matchAll(/^\W*55\s*\+?\s+(\d{1,3})\s?%/gm)) ages['55+'] = Number(r[1])
+  // porcentagem com dígito sobrando ("239%" no lugar de "23%"): corta até caber em 100
+  const pctOk = v => { let n = Number(v); while (n > 100) n = Math.floor(n / 10); return n }
+  for (const r of text.matchAll(/^\W*(13|18|25|35|45)\s*\D{0,2}\s*(17|24|34|44|54)\s+(\d{1,4})\s?%/gm)) ages[`${r[1]}-${r[2]}`] = pctOk(r[3])
+  for (const r of text.matchAll(/^\W*55\s*\+?\s+(\d{1,4})\s?%/gm)) ages['55+'] = pctOk(r[1])
   if (Object.keys(ages).length) out.ages = ages
   const cs = text.split(/countries or regions/i)[1]
   if (cs) {
