@@ -952,6 +952,24 @@ function engagementCard(s, prev, rate) {
   </div>`, prev ? `<span>vs. ${esc(monthWord(prevYm(state.smonth)))}</span>` : '')
 }
 
+// Vindos dos vídeos: quantas pessoas entraram na live depois de ver um vídeo seu, e o peso disso no público do mês
+function videosCard(ym) {
+  const a = summaryOf(ym)
+  if (!a?.video_joined) return ''
+  const b = summaryOf(prevYm(ym)) || {}
+  const share = a.unique_viewers ? a.video_joined / a.unique_viewers * 100 : null
+  const pShare = b.video_joined && b.unique_viewers ? b.video_joined / b.unique_viewers * 100 : null
+  const fol = a.video_followers_pct, neu = a.video_new_pct ?? (fol != null ? 100 - fol : null)
+  return sec('Vindos dos vídeos', `<div class="card vids">
+    <div class="vh"><div><b class="num">${esc(int(a.video_joined))}</b><span>pessoas entraram depois de ver seus vídeos</span></div>${delta(a.video_joined, b.video_joined)}</div>
+    ${share != null ? `<div class="row"><span>Do público do mês (${esc(compact(a.unique_viewers))} espectadores)</span><b class="num">${esc(dec(share, 1))}%${pShare != null ? ` <span class="muted">(${esc(monthWord(prevYm(ym)).slice(0, 3))}.: ${esc(dec(pShare, 1))}%)</span>` : ''}</b></div>
+    <div class="track" style="background:var(--s2);margin-top:-4px"><i style="transform:scaleX(${Math.min(share / 10, 1).toFixed(3)});background:linear-gradient(90deg,var(--p1),var(--accent-2))"></i></div>` : ''}
+    ${fol != null ? `<div class="gbar"><i style="width:${fol}%">${fol}%</i><i style="width:${neu}%">${neu > 6 ? `${neu}%` : ''}</i></div>
+    <div class="lg2" style="justify-content:space-between"><span><i class="f"></i>Seguidores de vídeos antigos</span><span><i class="m"></i>Entraram pelos seus vídeos ${neu <= 6 ? `${neu}%` : ''}</span></div>` : ''}
+    ${hint('live', share != null && share < 5 ? 'Quase todo o público chega pela entrega normal das lives. Postar com frequência pode trazer mais gente pelos vídeos.' : 'Os vídeos já trazem uma parte boa do público das lives.')}
+  </div>`, a.period ? `<span>até ${esc(shortDate(`${a.period[1]}T12:00`))}</span>` : '')
+}
+
 const hint = (icon, html) => `<p class="hint2">${ic(icon)}<span>${html}</span></p>`
 
 // média de diamantes por live em cada dia da semana (todas as lives)
@@ -1146,6 +1164,7 @@ function renderStats(animate) {
     projCard(s.agg, rate, state.smonth, state.smonth === current, s.fromSummary ? null : s.ls.length),
     funnelCard(s, prev),
     engagementCard(s, prev, rate),
+    videosCard(state.smonth),
     audienceCard(state.smonth),
     retentionCard(s, prev, state.smonth),
     weekdayCard(lives),
@@ -1564,6 +1583,7 @@ const MONTH_FIELDS = [
   ['unique_viewers', 'Espectadores únicos'], ['active_viewers', 'Espectadores ativos'], ['avg_watch_sec', 'Tempo médio (s)'],
   ['peak_viewers', 'Pico simultâneo'], ['avg_viewers', 'Média simultânea'], ['gifters', 'Presenteadores'],
   ['new_followers', 'Novos seguidores'], ['comments', 'Comentários'], ['shares', 'Compartilhamentos'], ['likes', 'Curtidas'],
+  ['video_joined', 'Vieram dos vídeos'],
 ]
 // países de vários prints (a tela rola): o mais novo vale; "Outros" sempre por último
 function mergeCountries(a = [], b = [], sameBatch = false) {
@@ -1591,7 +1611,7 @@ function showMonth(result, texts) {
   const period = data.period ? `${dm(data.period[0])} a ${dm(data.period[1])}` : null
   const spans = data.period && data.period[0].slice(0, 7) !== data.period[1].slice(0, 7)
   const metrics = MONTH_FIELDS.filter(([k]) => data[k] != null)
-  const aud = [data.female_pct != null && `gênero ${data.female_pct}/${data.male_pct}`, data.ages && `${Object.keys(data.ages).length} faixas de idade`, data.countries && `${data.countries.length} países`].filter(Boolean)
+  const aud = [data.video_followers_pct != null && `vídeos ${data.video_followers_pct}/${data.video_new_pct ?? 100 - data.video_followers_pct}`, data.female_pct != null && `gênero ${data.female_pct}/${data.male_pct}`, data.ages && `${Object.keys(data.ages).length} faixas de idade`, data.countries && `${data.countries.length} países`].filter(Boolean)
   result.insertAdjacentHTML('beforeend', `
     <form class="card" id="m-form"><h3>Resumo do mês</h3>
       <label class="field" for="m-month"><span>Mês</span><input id="m-month" name="month" type="month" value="${month}" required></label>
