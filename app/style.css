@@ -22,20 +22,14 @@ body {
   margin: 0; min-height: 100dvh; color: var(--text);
   font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
   overscroll-behavior-y: none;
-  background:
-    radial-gradient(85% 38% at 100% 0%, rgb(160 235 120 / 0.45), transparent 70%),
-    radial-gradient(70% 30% at 0% 40%, rgb(19 128 94 / 0.16), transparent 70%),
-    radial-gradient(80% 35% at 100% 75%, rgb(226 116 47 / 0.12), transparent 70%),
-    radial-gradient(90% 40% at 0% 100%, rgb(19 128 94 / 0.22), transparent 70%),
-    linear-gradient(175deg, var(--bg1), #cddcc0 55%, var(--bg2));
-  background-attachment: fixed;
+  background: var(--bg2);
   isolation: isolate;   /* sem isso os doodles (z-index -1) ficam atrás do fundo do body e somem */
 }
 /* doodles: camada única, desliza de lado com a rolagem (parallax) */
-body::before {
-  content: ""; position: fixed; inset: -200px; z-index: -1; pointer-events: none;
+.doodles {
+  position: fixed; inset: -200px; z-index: -1; pointer-events: none;
   background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%27180%27%20height%3D%27180%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.6%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M20%2030h20l7%2010-17%2020-17-20zM13%2040h34%27/%3E%3Cpath%20d%3D%27M120%2020l3%208%208%203-8%203-3%208-3-8-8-3%208-3z%27/%3E%3Crect%20x%3D%27128%27%20y%3D%2796%27%20width%3D%2714%27%20height%3D%2722%27%20rx%3D%277%27/%3E%3Cpath%20d%3D%27M122%20112a13%2013%200%200%200%2026%200M135%20125v8%27/%3E%3Cpath%20d%3D%27M60%20150s-12-8-12-17a7%207%200%200%201%2012-4%207%207%200%200%201%2012%204c0%209-12%2017-12%2017z%27/%3E%3Cpath%20d%3D%27M80%2080l2%205%205%202-5%202-2%205-2-5-5-2%205-2z%27/%3E%3Ccircle%20cx%3D%27160%27%20cy%3D%27160%27%20r%3D%276%27/%3E%3Cpath%20d%3D%27M150%2060c4-6%2010-6%2014%200s10%206%2014%200%27/%3E%3Cpath%20d%3D%27M14%20110l10%206-10%206zM30%20110v12%27/%3E%3Cpath%20d%3D%27M100%20165l6-12%206%2012z%27/%3E%3C/svg%3E") 0 0 / 180px; opacity: 0.05;
-  transform: translate3d(var(--dx, 0px), var(--dy, 0px), 0); will-change: transform;
+  will-change: transform;
 }
 
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -426,7 +420,7 @@ dialog#sheet.closing::backdrop { animation: fade-out 200ms ease-in forwards; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after, dialog#sheet::backdrop { animation-duration: 1ms !important; transition-duration: 1ms !important; }
   .reveal { opacity: 1; transform: none; }
-  body::before { transform: none; }
+  .doodles { transform: none !important; }
 }
 
 /* janela aberta: a tela de trás não rola junto */
@@ -634,3 +628,29 @@ html, body { touch-action: pan-x pan-y; }
 .vids .vh em { white-space: nowrap; font-style: normal; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: color-mix(in srgb, currentColor 14%, transparent); }
 .vids .lg2 i { margin-left: 0; margin-right: 5px; } .vids .lg2 span { display: flex; align-items: center; }
 .card .hint2 svg { width: 18px; height: 18px; }
+
+/* ---------- Fluidez ---------- */
+
+/* fundo em camada fixa própria: o iPhone não suporta background-attachment: fixed e redesenhava o degradê a cada rolagem */
+body::after { content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(85% 38% at 100% 0%, rgb(160 235 120 / 0.45), transparent 70%),
+    radial-gradient(70% 30% at 0% 40%, rgb(19 128 94 / 0.16), transparent 70%),
+    radial-gradient(80% 35% at 100% 75%, rgb(226 116 47 / 0.12), transparent 70%),
+    radial-gradient(90% 40% at 0% 100%, rgb(19 128 94 / 0.22), transparent 70%),
+    linear-gradient(175deg, var(--bg1), #cddcc0 55%, var(--bg2));
+  
+}
+.nw { white-space: nowrap; }
+/* cards: só opacidade e movimento ficam na GPU; o desfoque sai assim que o card termina de entrar */
+.reveal { will-change: transform, opacity; }
+.reveal.in { will-change: auto; }
+/* rolagem e toques mais suaves */
+html { scroll-behavior: auto; -webkit-overflow-scrolling: touch; }
+button, .lv, .rec, .q { -webkit-touch-callout: none; }
+.lv:active, .rk:active { transform: scale(0.985); transition: transform 0.12s ease; }
+.lv, .rk { transition: transform 0.2s ease, background-color 0.12s ease; }
+/* números não pulam de largura enquanto o contador sobe */
+[data-count] { font-variant-numeric: tabular-nums; }
+/* janelas: a rolagem interna não puxa a tela de trás */
+dialog#sheet { -webkit-overflow-scrolling: touch; }

@@ -41,7 +41,7 @@ const ENTITIES = {
       { key: 'views', label: 'Visualizações', type: 'int', half: true },
       { key: 'unique_viewers', label: 'Espectadores únicos', type: 'int', half: true },
       { key: 'active_viewers', label: 'Espectadores ativos', type: 'int', half: true },
-      { key: 'avg_watch_sec', label: 'Tempo médio assistido (s)', type: 'int', half: true },
+      { key: 'avg_watch_sec', label: 'Tempo médio (s)', type: 'int', half: true },
       { key: 'peak_viewers', label: 'Pico simultâneo', type: 'int', half: true },
       { key: 'avg_viewers', label: 'Média simultânea', type: 'int', half: true },
       { key: 'new_followers', label: 'Novos seguidores', type: 'int', half: true },
@@ -285,13 +285,17 @@ function renderShell() {
 {
   const still = matchMedia('(prefers-reduced-motion: reduce)')
   let ticking = false
+  // camada própria: mexer só no transform dela não obriga o navegador a recalcular a página inteira
+  const layer = document.createElement('div')
+  layer.className = 'doodles'
+  layer.setAttribute('aria-hidden', 'true')
+  document.body.prepend(layer)
   addEventListener('scroll', () => {
     if (still.matches || ticking) return
     ticking = true
     requestAnimationFrame(() => {
       const y = scrollY
-      document.body.style.setProperty('--dx', `${(-y * 0.18) % 180}px`)
-      document.body.style.setProperty('--dy', `${(-y * 0.07) % 180}px`)
+      layer.style.transform = `translate3d(${(-y * 0.18) % 180}px, ${(-y * 0.07) % 180}px, 0)`
       ticking = false
     })
   }, { passive: true })
@@ -446,7 +450,7 @@ function renderHome(animate) {
   view.innerHTML = `
     <div class="feature hero">${rain(GEM_LINE())}
       <div class="k"><i>${ic('gem')}</i>Diamantes de ${esc(monthWord(ym))}${vs}</div>
-      <div class="ringrow"><div><div class="big num" data-count>${esc(int(gems))}</div><div class="sub">${ml.length ? `${esc(int(Math.round(gems / ml.length)))} por live${mins ? ` · ${esc(int(Math.round(gems / (mins / 60))))} por hora` : ''}` : 'Nenhuma live registrada no mês'}</div></div>${ringHtml}</div>
+      <div class="ringrow"><div><div class="big num" data-count>${esc(int(gems))}</div><div class="sub">${ml.length ? `<span class="nw">${esc(int(Math.round(gems / ml.length)))} por live</span>${mins ? ` · <span class="nw">${esc(int(Math.round(gems / (mins / 60))))} por hora</span>` : ''}` : 'Nenhuma live registrada no mês'}</div></div>${ringHtml}</div>
       <div class="kpis"><div><span>Saldo do mês</span><b>${rate ? esc(brl0(net * rate)) : esc(usd(net))}</b></div><div><span>Lives</span><b>${ml.length}</b></div><div><span>Ao vivo</span><b>${esc(hours(mins))}</b></div></div>
       ${goalHtml}
     </div>
@@ -843,9 +847,9 @@ const shortDay = d => new Date(`${d}T12:00`).toLocaleDateString('pt-BR', { weekd
 
 // Totais do mês. Num mês que já fechou e tem o resumo do TikTok (prints do mês inteiro),
 // os totais vêm do resumo (as lives registradas podem não cobrir o mês todo); a lista continua sendo a das lives.
-function monthStats(lives, month) {
+function monthStats(lives, month, livesOnly = false) {
   const ls = lives.filter(l => l.date?.startsWith(month))
-  const sum = summaryOf(month)
+  const sum = livesOnly ? null : summaryOf(month)
   const fromSummary = !!sum?.diamonds && sum.diamonds > sumOf(ls, 'diamonds')
   const agg = fromSummary ? [sum] : ls
   const total = k => sumOf(agg, k)
@@ -1088,7 +1092,9 @@ function renderLives(animate) {
   if (!months.includes(state.lmonth)) state.lmonth = months.at(-1)
   const i = months.indexOf(state.lmonth)
   const s = monthStats(lives, state.lmonth)
-  const prev = i > 0 ? monthStats(lives, months[i - 1]) : null
+  // mês em andamento: compara com o mês anterior só até o mesmo dia (senão 1 dia de novembro vira "↓ 98%")
+  const sameDay = state.lmonth === today().slice(0, 7) && i > 0
+  const prev = i > 0 ? (sameDay ? monthStats(lives.filter(l => +l.date?.slice(8) <= new Date().getDate()), months[i - 1], true) : monthStats(lives, months[i - 1])) : null
 
   let body
   if (!s.ls.length) {
@@ -1109,7 +1115,7 @@ function renderLives(animate) {
     const avgY = (H - realAvg / top * H).toFixed(1)
     const pName = prev ? monthWord(months[i - 1]) : ''
     body = `
-      ${sec(prev ? `Comparado a ${esc(pName)}` : 'O mês', `<div class="quad">
+      ${sec(prev ? `Comparado a ${esc(pName)}${sameDay ? ` até dia ${new Date().getDate()}` : ''}` : 'O mês', `<div class="quad">
         ${qcell('gem', 'Diamantes', compact(s.gems), delta(s.gems, prev?.gems))}
         ${qcell('usd', 'Recompensas', s.usd >= 1e4 ? `US$ ${dec(s.usd / 1e3)} mil` : usd0(Math.round(s.usd)), delta(s.usd, prev?.usd), '', true)}
         ${qcell('cal', 'Por dia de live', s.perDay == null ? '—' : int(Math.round(s.perDay)), delta(s.perDay, prev?.perDay))}
@@ -1396,7 +1402,7 @@ function missoesPanel({ L, rate }) {
   const ld = snapThisWeek?.league_days ?? 0
   return `
     <div class="feature">
-      <div class="k"><i>${ic('cal')}</i>Semana de ${esc(days[0].slice(8))} a ${esc(endLabel)}<em>${L.snap ? `${pct(L.upcoming.pct)} de 13%` : 'sem print'}</em></div>
+      <div class="k"><i>${ic('cal')}</i>Semana de ${esc(days[0].slice(5, 7) === days[6].slice(5, 7) ? days[0].slice(8) : shortDate(`${days[0]}T12:00`))} a ${esc(endLabel)}<em>${L.snap ? `${pct(L.upcoming.pct)} de 13%` : 'sem print'}</em></div>
       <div class="ringrow"><div><div class="big num">${L.snap ? esc(usd(L.upcoming.usd)) : '—'}</div>
         <div class="sub">${L.snap ? `<span class="num">${esc(int(L.upcoming.gems))}</span> diamantes · ${L.upcoming.fromPrint ? `do print de ${esc(shortDate(L.snap.taken_at))}` : `estimativa com ${pct(L.upcoming.pct)}`}` : 'Mande o print de Upcoming rewards'}</div></div>
         ${L.snap ? ring(L.upcoming.pct / 13 * 100, pct(L.upcoming.pct), 'de 13%') : ''}</div>
