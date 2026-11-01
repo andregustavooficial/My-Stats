@@ -626,3 +626,11 @@ html, body { touch-action: pan-x pan-y; }
 .rk > b { font-size: 15px; }
 
 .chartcard .hint2 svg { width: 18px; height: 18px; stroke: currentColor; }
+
+/* Vindos dos vídeos */
+.vids .vh { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.vids .vh b { display: block; font-size: 30px; letter-spacing: -0.03em; }
+.vids .vh span { font-size: 12.5px; color: var(--muted); }
+.vids .vh em { white-space: nowrap; font-style: normal; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: color-mix(in srgb, currentColor 14%, transparent); }
+.vids .lg2 i { margin-left: 0; margin-right: 5px; } .vids .lg2 span { display: flex; align-items: center; }
+.card .hint2 svg { width: 18px; height: 18px; }

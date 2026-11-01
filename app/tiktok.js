@@ -25,12 +25,19 @@ const VALUE = /^(US\$|USD)?\s?\d[\d.,]*\s?[KkMm]?$|^[\dOo]+\s?m\s?[\dOo]+\s?s$/
 
 const clean = s => s.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').replace(/\s+/g, ' ').trim()
 // Emojis não são lidos e às vezes viram um símbolo solto ("LET'S SING &"): sai tudo que não for texto nas pontas
-const cleanTitle = s => (s || '')
-  .replace(/[^\p{L}\p{N}\p{P} ]/gu, '')
-  .replace(/^[^\p{L}\p{N}]+/u, '')
-  .replace(/(\s+[^\p{L}\p{N}\s]{1,2})+$/u, '')
-  .replace(/[\s.…•·\-–—|&©®@#*~^]+$/u, '')
-  .trim()
+// Título da live: os emojis e o avatar viram "palavras" de lixo na leitura ("©", "Bx7Q", "@@", "ey").
+// Fica só o que parece palavra: letras (com acento e apóstrofo), números sozinhos e pontuação comum;
+// palavras que misturam letras e números, ou soltas de 1 letra que não são "a/e/o/I/&", saem.
+const SHORT_OK = /^(a|e|o|i|y|&|de|da|do|em|no|na|os|as|um|me|te|se|eu|tu|é|my|of|in|on|to|is|it|me|we|be|by|at|so|no|go|up|oh|la|el|lo|tv|dj|ft)$/i
+const cleanTitle = s => {
+  const words = (s || '').replace(/[^\p{L}\p{N}\p{P} ]/gu, ' ').split(/\s+/).map(w => w.replace(/^[^\p{L}\p{N}&]+|[^\p{L}\p{N}!?'’)]+$/gu, ''))
+  const good = w => w && (/^\d+$/.test(w) || (/^[\p{L}][\p{L}'’.\-]*[!?)]?$/u.test(w) && (w.replace(/[^\p{L}]/gu, '').length >= 3 || SHORT_OK.test(w))) || w === '&')
+  // corta o lixo das pontas e fica com o maior trecho seguido de palavras boas
+  let best = [], cur = []
+  for (const w of words) { if (good(w)) cur.push(w); else { if (cur.length > best.length) best = cur; cur = [] } }
+  if (cur.length > best.length) best = cur
+  return best.join(' ').replace(/^(?:[a-z]{1,2}\s)+/i, m => (SHORT_OK.test(m.trim()) ? m : '')).trim()
+}
 const labelOf = s => LABELS.find(([, re]) => re.test(clean(s)))?.[0]
 
 function number(raw) {
@@ -122,7 +129,7 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
       const isTitle = l => l && !labelOf(l) && !VALUE.test(l) && !/live analysis|an[aá]lise|^\W*hours?\s+min/i.test(l)
       const prev = [lines[i - 1], lines[i - 2]].find(isTitle)
       const title = [line.slice(0, head.index), prev || '']
-        .map(cleanTitle).sort((a, b) => b.length - a.length)[0]
+        .map(cleanTitle).sort((a, b) => b.split(' ').length - a.split(' ').length || b.length - a.length)[0]
       if (title.length >= 3) out.title = title.toLocaleUpperCase('pt-BR')
       // O resumo logo abaixo do cabeçalho começa com um número e mistura números e nomes;
       // os mesmos dados vêm de novo em "Key metrics", então ele é ignorado
@@ -240,7 +247,7 @@ const KNOWN = ['United Kingdom', 'United States', 'Saudi Arabia', 'South Africa'
 
 export function isMonthPrint(text) {
   if (/live analysis/i.test(text)) return false
-  if (/viewer insights|countries or regions/i.test(text)) return true
+  if (/viewer insights|countries or regions|joined after watching|from (past|your) videos/i.test(text)) return true
   // o gráfico do mês tem datas no eixo ("Aug 31 ... Sep 29"); o de uma live não
   // topo do Overview: "Custom · Sep 1 - Sep 30"
   if (/\bcustom\b/i.test(text) || /\b[a-z]{3}\s+1\s*[-–]\s*[a-z]{3}\s+\d{1,2}\b/i.test(text)) return true
@@ -333,6 +340,14 @@ export function parseMonth(text, now = new Date()) {
   if (w) out.avg_watch_sec = (Number(w[1]) || 0) * 60 + Number(w[2])
   const h = text.match(/(\d+)\s?h\b[^\n]*\n?[^\n]*live duration/i)
   if (h) out.duration_min = Number(h[1]) * 60
+
+  // Viewers from videos: quantos entraram na live depois de ver um vídeo, e de onde
+  const vj = text.match(/([\d.,]+)\s*joined after watching/i)
+  if (vj) out.video_joined = Number(vj[1].replace(/[.,]/g, ''))
+  const vf = text.match(/followers from past videos[^\d\n]*(\d{1,3})\s?%/i)
+  if (vf && +vf[1] <= 100) out.video_followers_pct = +vf[1]
+  const vn = text.match(/joined from your videos[^\d\n]*(\d{1,3})\s?%/i)
+  if (vn && +vn[1] <= 100) out.video_new_pct = +vn[1]
 
   // Público: gênero, idade e países (em %)
   const g = text.match(/(\d{1,3})\s?%\s+(\d{1,3})\s?%\s*\n?\s*female\s+male/i)
