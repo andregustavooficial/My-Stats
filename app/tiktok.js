@@ -132,8 +132,9 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
       // O título vem na linha anterior ou na mesma linha, antes da data
       // (a leitura de imagem pode trazer lixo do avatar antes do título ou da data, então fica o candidato mais longo)
       const isTitle = l => l && !labelOf(l) && !VALUE.test(l) && !/live analysis|an[aá]lise|^\W*hours?\s+min/i.test(l)
-      const prev = [lines[i - 1], lines[i - 2]].find(isTitle)
-      const title = [line.slice(0, head.index), prev || '']
+      // a foto do perfil pode virar uma linha de lixo ("BM") entre o título e a data: olha as 3 linhas de cima
+      const prev = [lines[i - 1], lines[i - 2], lines[i - 3]].filter(isTitle)
+      const title = [line.slice(0, head.index), ...prev]
         .map(cleanTitle).sort((a, b) => letters(b) - letters(a))[0]
       if (title.length >= 3) out.title = title.toLocaleUpperCase('pt-BR')
       // O resumo logo abaixo do cabeçalho começa com um número e mistura números e nomes;
