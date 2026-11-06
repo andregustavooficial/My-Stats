@@ -1110,7 +1110,7 @@ function renderLives(animate) {
     const byDay = Array.from({ length: nDays }, (_, d) => sumOf(s.ls.filter(l => +l.date.slice(8) === d + 1), 'diamonds'))
     const top = Math.max(...byDay, 1)
     const W = 300, H = 110, bw = W / nDays
-    const bars = byDay.map((g, d) => g ? `<rect style="--i:${d}" x="${(d * bw + bw * 0.15).toFixed(1)}" y="${(H - g / top * H).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${(g / top * H).toFixed(1)}" rx="2" fill="${g === top ? 'var(--neon)' : '#9bb2d4'}"/>` : '').join('')
+    const bars = byDay.map((g, d) => g ? `<rect style="--i:${d}" x="${(d * bw + bw * 0.15).toFixed(1)}" y="${(H - g / top * H).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${(g / top * H).toFixed(1)}" rx="2" fill="${g === top ? 'var(--copper)' : '#8fd3a4'}"/>` : '').join('')
     const realAvg = s.days ? sumOf(s.ls, 'diamonds') / s.days : 0
     const avgY = (H - realAvg / top * H).toFixed(1)
     const pName = prev ? monthWord(months[i - 1]) : ''
