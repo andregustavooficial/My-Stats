@@ -36,8 +36,13 @@ const cleanTitle = s => {
   let best = [], cur = []
   for (const w of words) { if (good(w)) cur.push(w); else { if (cur.length > best.length) best = cur; cur = [] } }
   if (cur.length > best.length) best = cur
-  return best.join(' ').replace(/^(?:[a-z]{1,2}\s)+/i, m => (SHORT_OK.test(m.trim()) ? m : '')).trim()
+  // a foto do perfil vira palavrinhas curtas antes do título ("GOS I 8 LET'S SING"): no começo, tira número,
+  // palavra sem vogal e palavra curta (até 3 letras) seguida de outra curta ou número
+  const short = w => w && (/^\d+$/.test(w) || w.replace(/[^\p{L}]/gu, '').length <= 3)
+  while (best.length > 1 && (/^\d+$/.test(best[0]) || !/[aeiouyáéíóúâêôãõà]/i.test(best[0]) || (short(best[0]) && short(best[1])))) best.shift()
+  return best.join(' ').trim()
 }
+const letters = t => t.replace(/[^\p{L}]/gu, '').length
 const labelOf = s => LABELS.find(([, re]) => re.test(clean(s)))?.[0]
 
 function number(raw) {
@@ -129,7 +134,7 @@ export function parseTikTok(text, year = new Date().getFullYear()) {
       const isTitle = l => l && !labelOf(l) && !VALUE.test(l) && !/live analysis|an[aá]lise|^\W*hours?\s+min/i.test(l)
       const prev = [lines[i - 1], lines[i - 2]].find(isTitle)
       const title = [line.slice(0, head.index), prev || '']
-        .map(cleanTitle).sort((a, b) => b.split(' ').length - a.split(' ').length || b.length - a.length)[0]
+        .map(cleanTitle).sort((a, b) => letters(b) - letters(a))[0]
       if (title.length >= 3) out.title = title.toLocaleUpperCase('pt-BR')
       // O resumo logo abaixo do cabeçalho começa com um número e mistura números e nomes;
       // os mesmos dados vêm de novo em "Key metrics", então ele é ignorado
