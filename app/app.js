@@ -302,7 +302,7 @@ function renderShell() {
 }
 
 // O que cada aba precisa do banco
-const NEEDS = { home: ['lives', 'withdrawals', 'goals'], lives: ['lives', 'summaries'], stats: ['lives', 'withdrawals', 'summaries'], rewards: ['lives', 'withdrawals', 'snapshots', 'summaries'] }
+const NEEDS = { home: ['lives', 'withdrawals', 'goals', 'summaries'], lives: ['lives', 'summaries'], stats: ['lives', 'withdrawals', 'summaries'], rewards: ['lives', 'withdrawals', 'snapshots', 'summaries'] }
 const DRAW = { home: a => renderHome(a), lives: a => renderLives(a), stats: a => renderStats(a), rewards: a => renderRewards(a) }
 
 async function fetchFor(tab) {
@@ -454,7 +454,7 @@ function renderHome(animate) {
       <div class="kpis"><div><span>Saldo do mês</span><b>${rate ? esc(brl0(net * rate)) : esc(usd(net))}</b></div><div><span>Lives</span><b>${ml.length}</b></div><div><span>Ao vivo</span><b>${esc(hours(mins))}</b></div></div>
       ${goalHtml}
     </div>
-    <div class="life"><span class="lg">${ic('trophy')}</span><div><small>Diamantes desde nov/2023</small><b>${esc(int(life.diamonds))}</b><em>≈ ${esc(usd0(Math.round(life.usd)))}</em></div></div>
+    <div class="life"><span class="lg">${ic('trophy')}</span><div><small>Diamantes desde nov/2023</small><b>${esc(int(life.diamonds))}</b><em>≈ ${esc(usd0(Math.round(life.usd)))}</em></div>${lifeGoal(life.diamonds, goals, lives)}</div>
     <div class="fxp">
       <div><small>${ic('usd')}${payout?.source === 'saque' ? 'Último saque' : 'Dólar estimado'}</small><b>${rate ? esc(brlRate(rate)) : '—'}</b><em>${last ? `${esc(shortDate(`${last.date}T12:00`))} · ${esc(METHOD[last.method] || 'Payoneer')}` : 'comercial − R$ 0,18'}</em></div>
       <div><small>Comercial hoje${state.rate?.source === 'Banco Central' ? ' (BC)' : ''}</small><b>${commercial ? esc(brlRate(commercial)) : '—'}</b><em>${diff != null ? `${diff >= 0 ? '−' : '+'}R$ ${esc(dec(Math.abs(diff), 2))} no saque` : commercial ? '' : 'sem conexão'}</em></div>
@@ -470,6 +470,7 @@ function renderHome(animate) {
   bindList(view)
   if (animate) reveal(view)
   view.querySelector('[data-goal]').addEventListener('click', () => openGoal(ym))
+  view.querySelector('[data-lgoal]')?.addEventListener('click', () => openGoal('total'))
   if (goal && gems >= goal.diamonds) {
     setTimeout(() => celebrate(goal.diamonds, ym), animate ? 900 : 0)
     view.querySelector('.ring')?.addEventListener('click', () => celebrate(goal.diamonds, ym, true))
@@ -478,16 +479,48 @@ function renderHome(animate) {
   document.getElementById('logout').addEventListener('click', () => sb.auth.signOut())
 }
 
-// Meta de diamantes do mês: definir, mudar e ver as dos meses anteriores
+// Meta do acumulado: quando chega, no ritmo dos últimos 3 meses fechados (lives ou resumo do TikTok, o que for maior)
+function lifeGoal(total, goals, lives) {
+  const g = goals.find(x => x.month === 'total')
+  if (!g) return `<div class="lgoal"><div class="lgh"><span>${ic('target')}Meta do acumulado</span><button type="button" data-lgoal aria-label="Definir meta"><b style="font-size:12.5px">Definir</b></button></div></div>`
+  let m = prevYm(today().slice(0, 7))
+  const vals = []
+  for (let k = 0; k < 3; k++) {
+    const v = Math.max(sumOf(lives.filter(l => l.date?.startsWith(m)), 'diamonds'), Number(summaryOf(m)?.diamonds) || 0)
+    if (v) vals.push(v)
+    m = prevYm(m)
+  }
+  const avg = vals.length ? sumOf(vals.map(v => ({ v })), 'v') / vals.length : 0
+  const left = g.diamonds - total
+  const pctDone = Math.min(total / g.diamonds * 100, 100)
+  let foot, note = ''
+  if (left <= 0) foot = '<span>Meta batida! 🎉</span>'
+  else if (!avg) foot = `<span>Faltam <b>${esc(compact(left))}</b></span><span>sem média ainda</span>`
+  else {
+    const months = Math.ceil(left / avg)
+    const d = new Date(); d.setDate(15); d.setMonth(d.getMonth() + months)
+    const when = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '').replace(' de ', '/')
+    foot = `<span>Faltam <b>${esc(compact(left))}</b></span><span>chega em <b>~ ${esc(when)}</b></span>`
+    note = `<small class="lnote">No ritmo ${vals.length === 1 ? 'do último mês' : `dos últimos ${vals.length} meses`}: <b>${esc(compact(avg))}</b> por mês · ${months === 1 ? 'cerca de 1 mês' : `uns ${months} meses`}</small>`
+  }
+  return `<div class="lgoal">
+    <div class="lgh"><span>${ic('target')}Meta <b>${esc(compact(g.diamonds).replace(/,0+ mi$/, ' mi'))}</b></span><button type="button" data-lgoal aria-label="Editar meta">${ic('pen')}</button></div>
+    <div class="lbar"><i style="width:${pctDone.toFixed(1)}%"></i></div>
+    <div class="lgf">${foot}</div>${note}
+  </div>`
+}
+
+// Meta de diamantes do mês (ou do acumulado, com ym = 'total'): definir, mudar e ver as dos meses anteriores
 function openGoal(ym) {
   const goals = state.data.goals || []
   const cur = goals.find(g => g.month === ym)
   const done = m => sumOf(state.data.lives.filter(l => l.date?.startsWith(m)), 'diamonds')
-  const past = goals.filter(g => g.month !== ym).slice(0, 6)
+  const total = ym === 'total'
+  const past = total ? [] : goals.filter(g => g.month !== ym && g.month !== 'total').slice(0, 6)
   sheet.innerHTML = `
     <form method="dialog" class="sheet-body">
-      <div class="sheet-head"><button type="button" class="link" data-close>Cancelar</button><strong>Meta de ${esc(monthWord(ym))}</strong><button type="submit" class="link strong">Salvar</button></div>
-      <div class="fields"><label class="field" for="goal-v"><span>Diamantes no mês</span><input id="goal-v" name="v" type="text" inputmode="numeric" placeholder="2.500.000" value="${cur ? esc(int(cur.diamonds)) : ''}" required></label></div>
+      <div class="sheet-head"><button type="button" class="link" data-close>Cancelar</button><strong>${total ? 'Meta do acumulado' : `Meta de ${esc(monthWord(ym))}`}</strong><button type="submit" class="link strong">Salvar</button></div>
+      <div class="fields"><label class="field" for="goal-v"><span>${total ? 'Diamantes no total' : 'Diamantes no mês'}</span><input id="goal-v" name="v" type="text" inputmode="numeric" placeholder="${total ? '100.000.000' : '2.500.000'}" value="${cur ? esc(int(cur.diamonds)) : ''}" required></label></div>
       ${past.length ? `<div class="card"><h3>Metas anteriores</h3>${past.map(g => { const d = done(g.month); return `<div class="row"><span>${esc(cap(monthWord(g.month)))} ${g.month.slice(0, 4)}</span><b class="${d >= g.diamonds ? 'up' : 'down'}">${esc(compact(d))} de ${esc(compact(g.diamonds))}</b></div>` }).join('')}</div>` : ''}
       ${cur ? '<button type="button" class="btn danger" data-delete>Tirar a meta</button>' : ''}
     </form>`

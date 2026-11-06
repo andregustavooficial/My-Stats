@@ -654,3 +654,19 @@ button, .lv, .rec, .q { -webkit-touch-callout: none; }
 [data-count] { font-variant-numeric: tabular-nums; }
 /* janelas: a rolagem interna não puxa a tela de trás */
 dialog#sheet { -webkit-overflow-scrolling: touch; }
+
+/* meta do acumulado */
+.life .lgoal { grid-column: 1 / -1; margin-top: 4px; padding-top: 12px; border-top: 1px solid rgb(194 90 28 / 0.18); }
+.lgh { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; color: #9a5a32; }
+.lgh span { display: flex; align-items: center; gap: 6px; }
+.lgh svg { width: 15px; height: 15px; color: #c25a1c; }
+.life .lgh b { display: inline; font-size: 15px; color: var(--text); }
+.lgh button { min-width: 26px; height: 26px; padding: 0 8px; border: 0; border-radius: 8px; background: rgb(194 90 28 / 0.12); color: #c25a1c; display: grid; place-items: center; }
+.lgh button svg { width: 13px; height: 13px; }
+.lbar { height: 8px; border-radius: 9px; background: rgb(194 90 28 / 0.14); margin: 8px 0 6px; overflow: hidden; }
+.lbar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f08a45, #c25a1c); }
+.lgf { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
+.life .lgf b { display: inline; font-size: 13px; color: var(--text); letter-spacing: -0.01em; }
+.life .lgf span:last-child b { color: #c25a1c; }
+.life .lnote { display: block; margin-top: 4px; font-size: 11px; font-weight: 500; color: var(--faint); }
+.life .lnote b { display: inline; font-size: 11px; color: var(--muted); }
