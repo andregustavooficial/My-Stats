@@ -670,3 +670,21 @@ dialog#sheet { -webkit-overflow-scrolling: touch; }
 .life .lgf span:last-child b { color: #c25a1c; }
 .life .lnote { display: block; margin-top: 4px; font-size: 11px; font-weight: 500; color: var(--faint); }
 .life .lnote b { display: inline; font-size: 11px; color: var(--muted); }
+
+/* ---------- Barra de abas: presa ao rodapé, cantos de cima arredondados, destaque verde-limão que desliza ---------- */
+.tabs { left: 0; right: 0; bottom: 0; height: auto; gap: 0; border-radius: 26px 26px 0 0;
+  padding: 10px calc(env(safe-area-inset-right) + 10px) calc(env(safe-area-inset-bottom) + 10px) calc(env(safe-area-inset-left) + 10px);
+  background: linear-gradient(135deg, var(--p2), var(--p3)); box-shadow: 0 -10px 30px -16px rgb(10 86 64 / 0.6); }
+.tabs::before { content: ""; position: absolute; top: 10px; height: 52px; left: calc(env(safe-area-inset-left) + 10px);
+  width: calc((100% - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)) / 4); border-radius: 16px; background: var(--lime);
+  transform: translateX(calc(var(--ti, 0) * 100%)); transition: transform 0.5s cubic-bezier(0.34, 1.3, 0.64, 1); box-shadow: 0 6px 16px -6px rgb(198 245 154 / 0.8); }
+.tabs button, .tabs button.on { flex: 1; position: relative; z-index: 1; height: 52px; flex-direction: column; gap: 0; background: none; color: #cfe8d9; font-size: 0; border-radius: 16px; transition: color 0.25s ease, transform 0.15s ease; }
+.tabs button.on { color: var(--accent); }
+.tabs button svg { width: 24px; height: 24px; transition: transform 0.3s ease; animation: none; }
+.tabs button.on svg { transform: translateY(-6px); }
+.tabs button span, .tabs button.on span { position: absolute; bottom: 6px; max-width: none; margin: 0; transform: none; font-size: 10px; font-weight: 800; white-space: nowrap; opacity: 0; transition: opacity 0.3s ease 0.15s; }
+.tabs button.on span { opacity: 1; }
+.tabs button:active { transform: scale(0.94); }
+#view { padding-bottom: calc(env(safe-area-inset-bottom) + 110px); }
+#toast { bottom: calc(env(safe-area-inset-bottom) + 96px); }
+@media (prefers-reduced-motion: reduce) { .tabs::before, .tabs button svg, .tabs button span { transition: none; } }
